@@ -14,110 +14,11 @@ use winit::{
 use crate::{
     buffer::{Buffer, BufferBuilder},
     color::Srgba,
-    gpu::Gpu,
+    gpu::{Gpu, RenderQueue},
     pipeline::{Pipeline, PipelineBuilder},
     vertex::{Vertex, Vertex2},
 };
 
-pub trait RenderCommand {
-    fn render(&self, render_pass: &mut wgpu::RenderPass);
-}
-
-#[derive(Default)]
-pub struct RenderQueue {
-    clear_color: Srgba,
-    commands: Vec<Box<dyn RenderCommand>>,
-}
-impl RenderQueue {
-    pub fn get_clear_color(&self) -> Srgba {
-        self.clear_color
-    }
-
-    pub fn get_commands(&self) -> &Vec<Box<dyn RenderCommand>> {
-        &self.commands
-    }
-
-    pub fn draw(&mut self, command: impl RenderCommand + 'static) {
-        self.commands.push(Box::new(command));
-    }
-}
-
-pub struct ModelBuilder<V: Vertex> {
-    pipeline: Pipeline,
-    vertices: Vec<V>,
-    indices: Vec<u16>,
-}
-impl ModelBuilder<Vertex2> {
-    const SPRITE_VERT_BUFFER: [Vertex2; 4] = [
-        Vertex2::from_xy(-0.5, -0.5),
-        Vertex2::from_xy(0.5, -0.5),
-        Vertex2::from_xy(-0.5, -0.5),
-        Vertex2::from_xy(-0.5, 0.5),
-    ];
-    const SPRITE_IDX_BUFFER: [u16; 6] = [0, 1, 2, 0, 2, 3];
-
-    pub fn new_sprite(gpu: &Gpu) -> Self {
-        Self {
-            pipeline: PipelineBuilder::build_2d_default(gpu),
-            vertices: Self::SPRITE_VERT_BUFFER.into(),
-            indices: Self::SPRITE_IDX_BUFFER.into(),
-        }
-    }
-}
-impl<V: Vertex + Pod> ModelBuilder<V> {
-    pub fn vertices(&mut self, vertices: Vec<V>) -> &mut Self {
-        self.vertices = vertices;
-        self
-    }
-
-    pub fn indices(&mut self, indices: Vec<u16>) -> &mut Self {
-        self.indices = indices;
-        self
-    }
-
-    pub fn build(&self, gpu: &Gpu) -> Model {
-        Model {
-            pipeline: self.pipeline.clone(),
-            vertices: BufferBuilder::new()
-                .usage(wgpu::BufferUsages::VERTEX)
-                .contents(&self.vertices)
-                .build(gpu),
-            indices: BufferBuilder::new()
-                .usage(wgpu::BufferUsages::INDEX)
-                .contents(&self.indices)
-                .build(gpu),
-            n_indices: self.indices.len() as u32,
-        }
-    }
-}
-
-pub struct Model {
-    pipeline: Pipeline,
-    vertices: Buffer,
-    indices: Buffer,
-    n_indices: u32,
-}
-impl Model {
-    pub fn new(pipeline: Pipeline, vertices: Buffer, indices: Buffer, n_indices: u32) -> Self {
-        Self {
-            pipeline,
-            vertices,
-            indices,
-            n_indices,
-        }
-    }
-}
-impl RenderCommand for Model {
-    fn render(&self, render_pass: &mut wgpu::RenderPass) {
-        render_pass.set_pipeline(self.pipeline.get_handle());
-        render_pass.set_vertex_buffer(0, self.vertices.get_handle().slice(..));
-        render_pass.set_index_buffer(
-            self.indices.get_handle().slice(..),
-            wgpu::IndexFormat::Uint16,
-        );
-        render_pass.draw_indexed(0..self.n_indices, 0, 0..1);
-    }
-}
 
 pub struct Frame<'a> {
     gpu: &'a Gpu,
@@ -128,8 +29,7 @@ impl<'a> Frame<'a> {
     }
 
     pub fn render(&mut self, color: Srgba) -> RenderQueue {
-        let mut render_queue = RenderQueue::default();
-        render_queue.clear_color = color;
+        let mut render_queue = RenderQueue::new(color);
         render_queue
     }
 }

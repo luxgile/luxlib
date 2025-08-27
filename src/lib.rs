@@ -9,6 +9,7 @@ pub mod gpu;
 pub mod app;
 pub mod color;
 pub mod prelude;
+pub mod model;
 
 type LResult<T> = Result<T, LuxError>;
 #[derive(thiserror::Error, Debug)]

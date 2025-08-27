@@ -3,7 +3,37 @@ use std::sync::Arc;
 use log::warn;
 use winit::window::Window;
 
-use crate::{LResult, LuxError, buffer::Buffer, pipeline::Pipeline};
+use crate::{buffer::Buffer, color::Srgba, pipeline::Pipeline, LResult, LuxError};
+
+pub trait RenderCommand {
+    fn render(&self, render_pass: &mut wgpu::RenderPass);
+}
+
+#[derive(Default)]
+pub struct RenderQueue {
+    clear_color: Srgba,
+    commands: Vec<Box<dyn RenderCommand>>,
+}
+impl RenderQueue {
+    pub fn new(color: Srgba) -> Self {
+        Self {
+            clear_color: color,
+            commands: Vec::new(),
+        }
+    }
+
+    pub fn get_clear_color(&self) -> Srgba {
+        self.clear_color
+    }
+
+    pub fn get_commands(&self) -> &Vec<Box<dyn RenderCommand>> {
+        &self.commands
+    }
+
+    pub fn draw(&mut self, command: impl RenderCommand + 'static) {
+        self.commands.push(Box::new(command));
+    }
+}
 
 pub struct Gpu {
     main_window: Arc<Window>,
@@ -164,7 +194,7 @@ impl Gpu {
         output.present();
     }
 
-    pub fn render_queue(&self, render_queue: &crate::app::RenderQueue) {
+    pub fn render_queue(&self, render_queue: &RenderQueue) {
         self.main_window.request_redraw();
         if !self.is_surface_setup {
             return;

@@ -1,4 +1,4 @@
-use luxlib::{app::ModelBuilder, prelude::*, vertex::Vertex2};
+use luxlib::{model::ModelBuilder, prelude::*, vertex::Vertex2};
 
 fn main() {
     luxlib::init()
