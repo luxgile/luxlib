@@ -1,4 +1,9 @@
-use wgpu::{PipelineLayoutDescriptor, ShaderModuleDescriptor};
+use wgpu::VertexBufferLayout;
+
+use crate::{
+    gpu::Gpu,
+    vertex::{Vertex, Vertex2},
+};
 
 #[derive(Default)]
 pub struct ShaderBuilder<'a> {
@@ -10,12 +15,12 @@ impl<'a> ShaderBuilder<'a> {
         Self::default()
     }
 
-    pub fn with_label(&mut self, label: impl Into<String>) -> &mut Self {
+    pub fn label(&mut self, label: impl Into<String>) -> &mut Self {
         self.label = Some(label.into());
         self
     }
 
-    pub fn with_source(&mut self, source: wgpu::ShaderSource<'a>) -> &mut Self {
+    pub fn source(&mut self, source: wgpu::ShaderSource<'a>) -> &mut Self {
         self.source = Some(source);
         self
     }
@@ -45,7 +50,7 @@ impl LayoutBuilder {
         Self::default()
     }
 
-    pub fn with_label(&mut self, label: impl Into<String>) -> &mut Self {
+    pub fn label(&mut self, label: impl Into<String>) -> &mut Self {
         self.label = Some(label.into());
         self
     }
@@ -64,30 +69,63 @@ pub struct Layout {
     handle: wgpu::PipelineLayout,
 }
 
-#[derive(Default)]
 pub struct PipelineBuilder {
     label: Option<String>,
     shader: Option<Shader>,
     layout: Option<Layout>,
+    vertex_layout: VertexBufferLayout<'static>,
+}
+impl Default for PipelineBuilder {
+    fn default() -> Self {
+        Self {
+            label: Default::default(),
+            shader: Default::default(),
+            layout: Default::default(),
+            vertex_layout: Vertex2::get_layout(),
+        }
+    }
 }
 impl PipelineBuilder {
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub fn with_label(&mut self, label: impl Into<String>) -> &mut Self {
+    pub fn label(&mut self, label: impl Into<String>) -> &mut Self {
         self.label = Some(label.into());
         self
     }
 
-    pub fn with_shader(&mut self, shader: Shader) -> &mut Self {
+    pub fn shader(&mut self, shader: Shader) -> &mut Self {
         self.shader = Some(shader);
         self
     }
 
-    pub fn with_layout(&mut self, layout: Layout) -> &mut Self {
+    pub fn vertex_layout<T: Vertex>(&mut self) -> &mut Self {
+        self.vertex_layout = T::get_layout();
+        self
+    }
+
+    pub fn layout(&mut self, layout: Layout) -> &mut Self {
         self.layout = Some(layout);
         self
+    }
+
+    pub fn build_2d_default(gpu: &Gpu) -> Pipeline {
+        Self::new()
+            .label("2d pipeline")
+            .shader(
+                ShaderBuilder::new()
+                    .label("2d shader")
+                    .source(wgpu::ShaderSource::Wgsl(include_str!("2d.wgsl").into()))
+                    .build(gpu.get_device()),
+            )
+            .layout(
+                LayoutBuilder::new()
+                    .label("2d layout")
+                    .build(gpu.get_device()),
+            )
+            .vertex_layout::<Vertex2>()
+            .build(gpu.get_device(), gpu.get_config())
     }
 
     pub fn build(&self, device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) -> Pipeline {
@@ -101,7 +139,7 @@ impl PipelineBuilder {
                 module: &shader.handle,
                 entry_point: Some("vs_main"),
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
-                buffers: &[],
+                buffers: std::slice::from_ref(&self.vertex_layout),
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader.handle,
@@ -137,6 +175,7 @@ impl PipelineBuilder {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Pipeline {
     wgpu_pipeline: wgpu::RenderPipeline,
 }
