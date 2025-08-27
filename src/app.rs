@@ -16,26 +16,10 @@ use winit::{
 
 use crate::{
     color::Srgba,
+    frame::Frame,
     gpu::{Gpu, RenderQueue},
+    input::Input,
 };
-
-pub struct Frame<'a> {
-    dt: f64,
-    gpu: &'a Gpu,
-}
-impl<'a> Frame<'a> {
-    pub fn new(dt: f64, gpu: &'a Gpu) -> Self {
-        Self { dt, gpu }
-    }
-
-    pub fn gpu(&self) -> &Gpu {
-        self.gpu
-    }
-
-    pub fn render(&mut self, color: Srgba) -> RenderQueue {
-        RenderQueue::new(color)
-    }
-}
 
 // pub trait FrameLoop {}
 pub type InitFn<T> = fn(&mut Frame) -> T;
@@ -50,6 +34,7 @@ pub struct AppDesc {
 
 pub struct App<T> {
     state: Option<T>,
+    input: Input,
     gpu: Option<Gpu>,
     init_loop: InitFn<T>,
     frame_loop: FrameLoop<T>,
@@ -61,6 +46,7 @@ impl<T> App<T> {
     pub fn new(init_loop: InitFn<T>, frame_loop: FrameLoop<T>) -> Self {
         Self {
             last_frame_time: Instant::now(),
+            input: Input::default(),
             state: None,
             init_loop,
             gpu: None,
@@ -86,7 +72,7 @@ impl<T> ApplicationHandler<()> for App<T> {
 
         let gpu = pollster::block_on(Gpu::new(window)).unwrap();
 
-        self.state = Some((self.init_loop)(&mut Frame::new(0.0, &gpu)));
+        self.state = Some((self.init_loop)(&mut Frame::new(0.0, &self.input, &gpu)));
 
         self.gpu = Some(gpu);
     }
@@ -115,22 +101,30 @@ impl<T> ApplicationHandler<()> for App<T> {
                 }
 
                 let dt = self.last_frame_time.elapsed().as_secs_f64();
-                println!("{dt}");
                 self.last_frame_time = Instant::now();
 
                 let render_queue = {
                     let state = self.state.as_mut().unwrap();
-                    let mut frame = Frame::new(dt, gpu);
+                    let mut frame = Frame::new(dt, &self.input, gpu);
                     (self.frame_loop)(&mut frame, state).unwrap_or_default()
                 };
 
+                self.input.advance();
+
                 gpu.render_queue(&render_queue);
             }
-            WindowEvent::KeyboardInput { event, .. } => {
-                if let PhysicalKey::Code(code) = event.physical_key {
-                    if let (KeyCode::Escape, true) = (code, event.state.is_pressed()) {
-                        event_loop.exit()
-                    }
+            WindowEvent::KeyboardInput {
+                event,
+                device_id,
+                is_synthetic,
+            } => {
+                self.input
+                    .handle_keyboard_input(&event, &device_id, is_synthetic);
+
+                if let PhysicalKey::Code(code) = event.physical_key
+                    && let (KeyCode::Escape, true) = (code, event.state.is_pressed())
+                {
+                    event_loop.exit()
                 }
             }
             _ => {}

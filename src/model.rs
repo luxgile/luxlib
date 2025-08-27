@@ -1,7 +1,13 @@
 use bytemuck::Pod;
 
-use crate::{buffer::{Buffer, BufferBuilder}, gpu::{Gpu, RenderCommand}, pipeline::{Pipeline, PipelineBuilder}, vertex::{Vertex, Vertex2}};
- 
+use crate::{
+    bind::{BindGroup, BindGroupBuilder},
+    buffer::{Buffer, BufferBuilder},
+    gpu::{Gpu, RenderCommand},
+    pipeline::{Pipeline, PipelineBuilder},
+    vertex::{Vertex, Vertex2},
+};
+
 pub struct ModelBuilder<V: Vertex> {
     pipeline: Pipeline,
     vertices: Vec<V>,
@@ -38,6 +44,7 @@ impl<V: Vertex + Pod> ModelBuilder<V> {
     pub fn build(&self, gpu: &Gpu) -> Model {
         Model {
             pipeline: self.pipeline.clone(),
+            bind_group: BindGroupBuilder::default().build(gpu),
             vertices: BufferBuilder::new()
                 .usage(wgpu::BufferUsages::VERTEX)
                 .contents(&self.vertices)
@@ -54,14 +61,22 @@ impl<V: Vertex + Pod> ModelBuilder<V> {
 #[derive(Clone, Debug)]
 pub struct Model {
     pipeline: Pipeline,
+    bind_group: BindGroup,
     vertices: Buffer,
     indices: Buffer,
     n_indices: u32,
 }
 impl Model {
-    pub fn new(pipeline: Pipeline, vertices: Buffer, indices: Buffer, n_indices: u32) -> Self {
+    pub fn new(
+        pipeline: Pipeline,
+        bind_group: BindGroup,
+        vertices: Buffer,
+        indices: Buffer,
+        n_indices: u32,
+    ) -> Self {
         Self {
             pipeline,
+            bind_group,
             vertices,
             indices,
             n_indices,
@@ -72,6 +87,7 @@ impl RenderCommand for Model {
     fn render(&self, render_pass: &mut wgpu::RenderPass) {
         render_pass.set_pipeline(self.pipeline.get_handle());
         render_pass.set_vertex_buffer(0, self.vertices.get_handle().slice(..));
+        render_pass.set_bind_group(0, Some(self.bind_group.get_handle()), &[]);
         render_pass.set_index_buffer(
             self.indices.get_handle().slice(..),
             wgpu::IndexFormat::Uint16,

@@ -10,6 +10,11 @@ pub mod model;
 pub mod pipeline;
 pub mod prelude;
 pub mod vertex;
+pub mod frame;
+pub mod input;
+pub mod shapes;
+pub mod texture;
+pub mod bind;
 
 type LResult<T> = Result<T, LuxError>;
 #[derive(thiserror::Error, Debug)]
