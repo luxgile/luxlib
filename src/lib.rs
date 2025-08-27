@@ -2,11 +2,13 @@
 
 use crate::app::AppBuilder;
 
-mod pipeline;
-mod buffer;
-mod vertex;
-mod gpu;
-mod app;
+pub mod pipeline;
+pub mod buffer;
+pub mod vertex;
+pub mod gpu;
+pub mod app;
+pub mod color;
+pub mod prelude;
 
 type LResult<T> = Result<T, LuxError>;
 #[derive(thiserror::Error, Debug)]
