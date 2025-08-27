@@ -30,8 +30,8 @@ impl RenderQueue {
         &self.commands
     }
 
-    pub fn draw(&mut self, command: impl RenderCommand + 'static) {
-        self.commands.push(Box::new(command));
+    pub fn draw<T: RenderCommand + Clone + 'static>(&mut self, command: &T) {
+        self.commands.push(Box::new(command.clone()));
     }
 }
 

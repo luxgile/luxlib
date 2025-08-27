@@ -1,15 +1,15 @@
 #![allow(dead_code)]
 
-use crate::app::AppBuilder;
+use crate::app::{AppBuilderStage1, AppBuilderStage2, InitFn};
 
-pub mod pipeline;
-pub mod buffer;
-pub mod vertex;
-pub mod gpu;
 pub mod app;
+pub mod buffer;
 pub mod color;
-pub mod prelude;
+pub mod gpu;
 pub mod model;
+pub mod pipeline;
+pub mod prelude;
+pub mod vertex;
 
 type LResult<T> = Result<T, LuxError>;
 #[derive(thiserror::Error, Debug)]
@@ -18,8 +18,8 @@ pub enum LuxError {
     WgpuFailedInit { error: String },
 }
 
-
-pub fn init() -> AppBuilder {
+pub fn setup() -> AppBuilderStage1 {
     env_logger::init();
-    AppBuilder::default()
+    AppBuilderStage1::default()
 }
+

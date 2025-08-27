@@ -51,6 +51,7 @@ impl<V: Vertex + Pod> ModelBuilder<V> {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct Model {
     pipeline: Pipeline,
     vertices: Buffer,

@@ -1,9 +1,10 @@
 use luxlib::prelude::*;
 
 fn main() {
-    luxlib::init()
+    luxlib::setup()
         .title("My app")
         .window_size(UVec2::new(800, 600))
-        .frame_loop(|frame| Some(frame.render(Srgba::WHITE)))
-        .start_app();
+        .no_init()
+        .frame_loop(|frame, _| Some(frame.render(Srgba::WHITE)))
+        .start();
 }

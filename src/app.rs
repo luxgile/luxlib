@@ -19,11 +19,14 @@ use crate::{
     vertex::{Vertex, Vertex2},
 };
 
-
 pub struct Frame<'a> {
     gpu: &'a Gpu,
 }
 impl<'a> Frame<'a> {
+    pub fn new(gpu: &'a Gpu) -> Self {
+        Self { gpu }
+    }
+
     pub fn gpu(&self) -> &Gpu {
         self.gpu
     }
@@ -35,29 +38,34 @@ impl<'a> Frame<'a> {
 }
 
 // pub trait FrameLoop {}
-type FrameLoop = fn(&mut Frame) -> Option<RenderQueue>;
+pub type InitFn<T> = fn(&mut Frame) -> T;
+pub type FrameLoop<T> = fn(&mut Frame, &mut T) -> Option<RenderQueue>;
 
-#[derive(Default)]
-pub struct App {
-    gpu: Option<Gpu>,
-    frame_loop: Option<FrameLoop>,
-
-    // The builder cannot config the app directly, as the app needs `resume` to be called first
-    // after starting the app.
-    config: Option<AppBuilder>,
+pub struct AppDesc {
+    title: String,
+    size: UVec2,
 }
 
-impl App {
-    pub fn new() -> Self {
+pub struct App<T> {
+    state: Option<T>,
+    gpu: Option<Gpu>,
+    init_loop: InitFn<T>,
+    frame_loop: FrameLoop<T>,
+    config: Option<AppDesc>,
+}
+impl<T> App<T> {
+    pub fn new(init_loop: InitFn<T>, frame_loop: FrameLoop<T>) -> Self {
         Self {
+            state: None,
+            init_loop,
             gpu: None,
-            frame_loop: None,
+            frame_loop,
             config: None,
         }
     }
 }
 
-impl ApplicationHandler<()> for App {
+impl<T> ApplicationHandler<()> for App<T> {
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
         let window_attributes = Window::default_attributes();
         let window = Arc::new(
@@ -72,6 +80,9 @@ impl ApplicationHandler<()> for App {
         }
 
         let gpu = pollster::block_on(Gpu::new(window)).unwrap();
+
+        self.state = Some((self.init_loop)(&mut Frame::new(&gpu)));
+
         self.gpu = Some(gpu);
     }
 
@@ -91,24 +102,19 @@ impl ApplicationHandler<()> for App {
             WindowEvent::Resized(size) => gpu.resize(size.width, size.height),
             WindowEvent::RedrawRequested => {
                 let gpu = self.gpu.as_ref().unwrap();
-                let render_queue = if let Some(frame_loop) = &self.frame_loop {
-                    let mut frame = Frame { gpu };
-                    frame_loop(&mut frame).unwrap_or(RenderQueue::default())
-                } else {
-                    RenderQueue::default()
+                let render_queue = {
+                    let mut state = self.state.as_mut().unwrap();
+                    let mut frame = Frame::new(self.gpu.as_ref().unwrap());
+                    (self.frame_loop)(&mut frame, &mut state).unwrap_or(RenderQueue::default())
                 };
 
                 gpu.render_queue(&render_queue);
-                // gpu.render(
-                //     self.default_2d_pipeline.as_ref().unwrap(),
-                //     self.vertex_buffer.as_ref().unwrap(),
-                //     self.index_buffer.as_ref().unwrap(),
-                //     9,
-                // )
             }
             WindowEvent::KeyboardInput { event, .. } => {
                 if let PhysicalKey::Code(code) = event.physical_key {
-                    if let (KeyCode::Escape, true) = (code, event.state.is_pressed()) { event_loop.exit() }
+                    if let (KeyCode::Escape, true) = (code, event.state.is_pressed()) {
+                        event_loop.exit()
+                    }
                 }
             }
             _ => {}
@@ -117,12 +123,18 @@ impl ApplicationHandler<()> for App {
 }
 
 #[derive(Clone)]
-pub struct AppBuilder {
+pub struct AppBuilderStage1 {
     title: String,
-    frame_loop: FrameLoop,
     size: UVec2,
 }
-impl AppBuilder {
+impl AppBuilderStage1 {
+    fn get_desc(&self) -> AppDesc {
+        AppDesc {
+            title: self.title.clone(),
+            size: self.size,
+        }
+    }
+
     pub fn title(&mut self, title: impl Into<String>) -> &mut Self {
         self.title = title.into();
         self
@@ -133,30 +145,52 @@ impl AppBuilder {
         self
     }
 
-    pub fn frame_loop(&mut self, frame_loop: fn(&mut Frame) -> Option<RenderQueue>) -> &mut Self {
+    pub fn no_init(&mut self) -> AppBuilderStage2<()> {
+        AppBuilderStage2::new(self.clone(), |_| ())
+    }
+
+    pub fn init<T>(&mut self, init_fn: InitFn<T>) -> AppBuilderStage2<T> {
+        AppBuilderStage2::new(self.clone(), init_fn)
+    }
+}
+impl Default for AppBuilderStage1 {
+    fn default() -> Self {
+        Self {
+            title: "Luxlib Window".to_string(),
+            size: [800, 600].into(),
+        }
+    }
+}
+
+pub struct AppBuilderStage2<T> {
+    stage1: AppBuilderStage1,
+    frame_loop: FrameLoop<T>,
+    init_fn: InitFn<T>,
+}
+impl<T> AppBuilderStage2<T> {
+    fn new(stage1: AppBuilderStage1, init_fn: InitFn<T>) -> Self {
+        Self {
+            stage1,
+            frame_loop: |_, _| None,
+            init_fn,
+        }
+    }
+
+    pub fn frame_loop(
+        &mut self,
+        frame_loop: fn(&mut Frame, &mut T) -> Option<RenderQueue>,
+    ) -> &mut Self {
         self.frame_loop = frame_loop;
         self
     }
 
-    pub fn start_app(&mut self) {
+    pub fn start(&mut self) {
         let event_loop = EventLoop::with_user_event()
             .build()
             .expect("cannot create event loop");
-        let mut app = App::new();
-        app.frame_loop = Some(self.frame_loop);
-        app.config = Some(self.clone());
+
+        let mut app = App::new(self.init_fn, self.frame_loop);
+        app.config = Some(self.stage1.get_desc());
         event_loop.run_app(&mut app).expect("error on event loop");
     }
-}
-impl Default for AppBuilder {
-    fn default() -> Self {
-        Self {
-            title: "Luxlib Window".to_string(),
-            size: UVec2::new(800, 600),
-            frame_loop: empty_frame_loop,
-        }
-    }
-}
-fn empty_frame_loop(_: &mut Frame) -> Option<RenderQueue> {
-    Some(RenderQueue::default())
 }

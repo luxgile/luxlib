@@ -47,6 +47,7 @@ impl BufferBuilder {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct Buffer {
     handle: wgpu::Buffer,
 }

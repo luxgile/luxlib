@@ -1,11 +1,18 @@
-use luxlib::{model::ModelBuilder, prelude::*, vertex::Vertex2};
+use luxlib::{
+    model::{Model, ModelBuilder},
+    prelude::*,
+    vertex::Vertex2,
+};
+
+struct Game {
+    sprite: Option<Model>,
+}
 
 fn main() {
-    luxlib::init()
+    luxlib::setup()
         .title("My app")
         .window_size(glam::UVec2::new(800, 600))
-        .frame_loop(|frame| {
-            let mut render = frame.render(Srgba::WHITE);
+        .init(|frame| {
             let sprite = ModelBuilder::new_sprite(frame.gpu())
                 .vertices(vec![
                     Vertex2 {
@@ -31,8 +38,14 @@ fn main() {
                 ])
                 .indices(vec![0u16, 1, 4, 1, 2, 4, 2, 3, 4])
                 .build(frame.gpu());
-            render.draw(sprite);
+            Game {
+                sprite: Some(sprite),
+            }
+        })
+        .frame_loop(|frame, state| {
+            let mut render = frame.render(Srgba::WHITE);
+            render.draw(state.sprite.as_ref().unwrap());
             Some(render)
         })
-        .start_app();
+        .start();
 }
