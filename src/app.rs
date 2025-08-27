@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::{
+    sync::Arc,
+    time::{self, Duration, Instant},
+};
 
 use bytemuck::Pod;
 use glam::UVec2;
@@ -12,19 +15,17 @@ use winit::{
 };
 
 use crate::{
-    buffer::{Buffer, BufferBuilder},
     color::Srgba,
     gpu::{Gpu, RenderQueue},
-    pipeline::{Pipeline, PipelineBuilder},
-    vertex::{Vertex, Vertex2},
 };
 
 pub struct Frame<'a> {
+    dt: f64,
     gpu: &'a Gpu,
 }
 impl<'a> Frame<'a> {
-    pub fn new(gpu: &'a Gpu) -> Self {
-        Self { gpu }
+    pub fn new(dt: f64, gpu: &'a Gpu) -> Self {
+        Self { dt, gpu }
     }
 
     pub fn gpu(&self) -> &Gpu {
@@ -32,8 +33,7 @@ impl<'a> Frame<'a> {
     }
 
     pub fn render(&mut self, color: Srgba) -> RenderQueue {
-        let mut render_queue = RenderQueue::new(color);
-        render_queue
+        RenderQueue::new(color)
     }
 }
 
@@ -41,9 +41,11 @@ impl<'a> Frame<'a> {
 pub type InitFn<T> = fn(&mut Frame) -> T;
 pub type FrameLoop<T> = fn(&mut Frame, &mut T) -> Option<RenderQueue>;
 
+#[derive(Clone)]
 pub struct AppDesc {
     title: String,
     size: UVec2,
+    frame_time: Duration,
 }
 
 pub struct App<T> {
@@ -51,16 +53,19 @@ pub struct App<T> {
     gpu: Option<Gpu>,
     init_loop: InitFn<T>,
     frame_loop: FrameLoop<T>,
-    config: Option<AppDesc>,
+    desc: Option<AppDesc>,
+
+    last_frame_time: Instant,
 }
 impl<T> App<T> {
     pub fn new(init_loop: InitFn<T>, frame_loop: FrameLoop<T>) -> Self {
         Self {
+            last_frame_time: Instant::now(),
             state: None,
             init_loop,
             gpu: None,
             frame_loop,
-            config: None,
+            desc: None,
         }
     }
 }
@@ -74,14 +79,14 @@ impl<T> ApplicationHandler<()> for App<T> {
                 .expect("error creating new window"),
         );
 
-        if let Some(config) = &self.config {
+        if let Some(config) = &self.desc {
             window.set_title(&config.title);
             let _ = window.request_inner_size(LogicalSize::new(config.size.x, config.size.y));
         }
 
         let gpu = pollster::block_on(Gpu::new(window)).unwrap();
 
-        self.state = Some((self.init_loop)(&mut Frame::new(&gpu)));
+        self.state = Some((self.init_loop)(&mut Frame::new(0.0, &gpu)));
 
         self.gpu = Some(gpu);
     }
@@ -97,15 +102,26 @@ impl<T> ApplicationHandler<()> for App<T> {
             None => return,
         };
 
+        let desc = self.desc.as_ref().unwrap();
+
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::Resized(size) => gpu.resize(size.width, size.height),
             WindowEvent::RedrawRequested => {
-                let gpu = self.gpu.as_ref().unwrap();
+                gpu.redraw();
+
+                if self.last_frame_time.elapsed() < desc.frame_time {
+                    return;
+                }
+
+                let dt = self.last_frame_time.elapsed().as_secs_f64();
+                println!("{dt}");
+                self.last_frame_time = Instant::now();
+
                 let render_queue = {
-                    let mut state = self.state.as_mut().unwrap();
-                    let mut frame = Frame::new(self.gpu.as_ref().unwrap());
-                    (self.frame_loop)(&mut frame, &mut state).unwrap_or(RenderQueue::default())
+                    let state = self.state.as_mut().unwrap();
+                    let mut frame = Frame::new(dt, gpu);
+                    (self.frame_loop)(&mut frame, state).unwrap_or_default()
                 };
 
                 gpu.render_queue(&render_queue);
@@ -124,24 +140,25 @@ impl<T> ApplicationHandler<()> for App<T> {
 
 #[derive(Clone)]
 pub struct AppBuilderStage1 {
-    title: String,
-    size: UVec2,
+    desc: AppDesc,
 }
 impl AppBuilderStage1 {
-    fn get_desc(&self) -> AppDesc {
-        AppDesc {
-            title: self.title.clone(),
-            size: self.size,
-        }
+    fn get_desc(&self) -> &AppDesc {
+        &self.desc
     }
 
     pub fn title(&mut self, title: impl Into<String>) -> &mut Self {
-        self.title = title.into();
+        self.desc.title = title.into();
+        self
+    }
+
+    pub fn target_fps(&mut self, fps: u64) -> &mut Self {
+        self.desc.frame_time = Duration::from_micros(1_000_000 / fps);
         self
     }
 
     pub fn window_size(&mut self, size: UVec2) -> &mut Self {
-        self.size = size;
+        self.desc.size = size;
         self
     }
 
@@ -156,8 +173,11 @@ impl AppBuilderStage1 {
 impl Default for AppBuilderStage1 {
     fn default() -> Self {
         Self {
-            title: "Luxlib Window".to_string(),
-            size: [800, 600].into(),
+            desc: AppDesc {
+                title: "Luxlib Window".to_string(),
+                size: [800, 600].into(),
+                frame_time: Duration::from_micros(0),
+            },
         }
     }
 }
@@ -188,9 +208,10 @@ impl<T> AppBuilderStage2<T> {
         let event_loop = EventLoop::with_user_event()
             .build()
             .expect("cannot create event loop");
+        event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
 
         let mut app = App::new(self.init_fn, self.frame_loop);
-        app.config = Some(self.stage1.get_desc());
+        app.desc = Some(self.stage1.get_desc().clone());
         event_loop.run_app(&mut app).expect("error on event loop");
     }
 }

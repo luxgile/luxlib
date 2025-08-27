@@ -3,7 +3,7 @@ use std::sync::Arc;
 use log::warn;
 use winit::window::Window;
 
-use crate::{buffer::Buffer, color::Srgba, pipeline::Pipeline, LResult, LuxError};
+use crate::{LResult, LuxError, buffer::Buffer, color::Srgba, pipeline::Pipeline};
 
 pub trait RenderCommand {
     fn render(&self, render_pass: &mut wgpu::RenderPass);
@@ -137,61 +137,8 @@ impl Gpu {
         self.is_surface_setup = true;
     }
 
-    pub fn render(
-        &self,
-        pipeline: &Pipeline,
-        vertices: &Buffer,
-        indices: &Buffer,
-        index_number: u32,
-    ) {
+    pub fn redraw(&self) {
         self.main_window.request_redraw();
-        if !self.is_surface_setup {
-            return;
-        }
-
-        let output = self
-            .surface
-            .get_current_texture()
-            .expect("error geting current texture");
-        let view = output
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Render Encoder"),
-            });
-
-        {
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Render Pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
-                            a: 1.0,
-                        }),
-                        store: wgpu::StoreOp::Store,
-                    },
-                    depth_slice: None,
-                })],
-                depth_stencil_attachment: None,
-                occlusion_query_set: None,
-                timestamp_writes: None,
-            });
-            render_pass.set_pipeline(pipeline.get_handle());
-            render_pass.set_vertex_buffer(0, vertices.get_handle().slice(..));
-            render_pass.set_index_buffer(indices.get_handle().slice(..), wgpu::IndexFormat::Uint16);
-            render_pass.draw_indexed(0..index_number, 0, 0..1);
-        }
-
-        // submit will accept anything that implements IntoIter
-        self.queue.submit(std::iter::once(encoder.finish()));
-        output.present();
     }
 
     pub fn render_queue(&self, render_queue: &RenderQueue) {

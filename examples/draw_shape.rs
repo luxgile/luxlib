@@ -12,6 +12,7 @@ fn main() {
     luxlib::setup()
         .title("My app")
         .window_size(glam::UVec2::new(800, 600))
+        .target_fps(60)
         .init(|frame| {
             let sprite = ModelBuilder::new_sprite(frame.gpu())
                 .vertices(vec![
