@@ -15,6 +15,8 @@ pub mod input;
 pub mod shapes;
 pub mod texture;
 pub mod bind;
+pub mod material;
+pub mod uniform;
 
 type LResult<T> = Result<T, LuxError>;
 #[derive(thiserror::Error, Debug)]

@@ -1,23 +1,49 @@
 use std::sync::Arc;
 
+use glam::Vec2;
 use log::warn;
 use winit::window::Window;
 
-use crate::{LResult, LuxError, buffer::Buffer, color::Srgba, pipeline::Pipeline};
+use crate::{
+    LResult, LuxError,
+    buffer::Buffer,
+    color::Srgba,
+    material::StandardMaterial2d,
+    model::{Mesh, MeshBuilder},
+    pipeline::Pipeline,
+    shapes::{DrawRect, Rect},
+    vertex::Vertex2,
+};
 
-pub trait RenderCommand {
-    fn render(&self, render_pass: &mut wgpu::RenderPass);
+pub trait DrawCommand {
+    fn render(&self, gpu: &Gpu, render_pass: &mut wgpu::RenderPass);
+}
+
+#[derive(Default)]
+pub struct Camera2d {
+    pub position: Vec2,
+}
+
+pub struct UpdateCamera {
+    pub camera: Camera2d,
+}
+impl DrawCommand for UpdateCamera {
+    fn render(&self, gpu: &Gpu, render_pass: &mut wgpu::RenderPass) {
+        todo!()
+    }
 }
 
 #[derive(Default)]
 pub struct RenderQueue {
     clear_color: Srgba,
-    commands: Vec<Box<dyn RenderCommand>>,
+    camera: Camera2d,
+    commands: Vec<Box<dyn DrawCommand>>,
 }
 impl RenderQueue {
     pub fn new(color: Srgba) -> Self {
         Self {
             clear_color: color,
+            camera: Camera2d::default(),
             commands: Vec::new(),
         }
     }
@@ -26,12 +52,53 @@ impl RenderQueue {
         self.clear_color
     }
 
-    pub fn get_commands(&self) -> &Vec<Box<dyn RenderCommand>> {
+    pub fn get_commands(&self) -> &Vec<Box<dyn DrawCommand>> {
         &self.commands
     }
 
-    pub fn draw<T: RenderCommand + Clone + 'static>(&mut self, command: &T) {
+    pub fn draw<T: DrawCommand + Clone + 'static>(&mut self, command: &T) {
         self.commands.push(Box::new(command.clone()));
+    }
+
+    pub fn rect(&mut self, closure: impl Fn(&mut DrawRect) -> &mut DrawRect) {
+        let mut draw = DrawRect::default();
+        closure(&mut draw);
+        self.commands.push(Box::new(draw));
+    }
+}
+
+/// Used to hold meshes, shaders and other visual objects that are reused a lot.
+#[derive(Debug)]
+pub struct VisualConstants {
+    quad_mesh: Mesh,
+    default_2d_mat: StandardMaterial2d,
+}
+impl VisualConstants {
+    const QUAD_VERT_BUFFER: [Vertex2; 4] = [
+        Vertex2::from_xy(0.5, 0.5),
+        Vertex2::from_xy(-0.5, 0.5),
+        Vertex2::from_xy(-0.5, -0.5),
+        Vertex2::from_xy(0.5, -0.5),
+    ];
+    const QUAD_IDX_BUFFER: [u16; 6] = [0, 1, 2, 0, 2, 3];
+
+    pub fn new(gpu: &Gpu) -> Self {
+        Self {
+            quad_mesh: MeshBuilder {
+                vertices: Self::QUAD_VERT_BUFFER.to_vec(),
+                indices: Self::QUAD_IDX_BUFFER.to_vec(),
+            }
+            .build(gpu),
+            default_2d_mat: StandardMaterial2d::new(gpu),
+        }
+    }
+
+    pub fn get_quad_mesh(&self) -> &Mesh {
+        &self.quad_mesh
+    }
+
+    pub fn get_default_2d_material(&self) -> &StandardMaterial2d {
+        &self.default_2d_mat
     }
 }
 
@@ -42,6 +109,7 @@ pub struct Gpu {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     is_surface_setup: bool,
+    constants: Option<VisualConstants>,
 }
 impl Gpu {
     pub async fn new(window: Arc<Window>) -> LResult<Self> {
@@ -96,14 +164,20 @@ impl Gpu {
             desired_maximum_frame_latency: 2,
         };
 
-        Ok(Self {
+        let mut gpu = Self {
             config,
             surface,
             device,
             queue,
             main_window: window,
             is_surface_setup: false,
-        })
+            constants: None,
+        };
+
+        let constants = VisualConstants::new(&gpu);
+        gpu.constants = Some(constants);
+
+        Ok(gpu)
     }
 
     pub fn get_main_window(&self) -> &Window {
@@ -124,6 +198,10 @@ impl Gpu {
 
     pub fn get_config(&self) -> &wgpu::SurfaceConfiguration {
         &self.config
+    }
+
+    pub fn get_constants(&self) -> &VisualConstants {
+        self.constants.as_ref().unwrap()
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
@@ -184,7 +262,7 @@ impl Gpu {
             });
 
             for cmd in render_queue.get_commands() {
-                cmd.render(&mut render_pass);
+                cmd.render(self, &mut render_pass);
             }
         }
 

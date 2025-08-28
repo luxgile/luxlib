@@ -1,4 +1,7 @@
-use luxlib::{input::KeyInput, prelude::*};
+use luxlib::{
+    input::KeyInput,
+    prelude::*,
+};
 
 struct Game {
     position: Vec2,
@@ -14,19 +17,20 @@ fn main() {
         })
         .frame_loop(|frame, game| {
             if frame.input().is_key_pressed(KeyInput::Right) {
-                game.position.x += 2.0 * frame.dt();
+                game.position.x += 10.0 * frame.dt();
             }
             if frame.input().is_key_pressed(KeyInput::Left) {
-                game.position.x -= 2.0 * frame.dt();
+                game.position.x -= 10.0 * frame.dt();
             }
             if frame.input().is_key_pressed(KeyInput::Up) {
-                game.position.y += 2.0 * frame.dt();
+                game.position.y += 10.0 * frame.dt();
             }
             if frame.input().is_key_pressed(KeyInput::Down) {
-                game.position.y -= 2.0 * frame.dt();
+                game.position.y -= 10.0 * frame.dt();
             }
 
             let mut render = frame.render(Srgba::WHITE);
+            render.rect(|r| r.position(game.position).color(Srgba::DARK_GRAY));
             Some(render)
         })
         .start();

@@ -1,50 +1,32 @@
+use std::fmt::Debug;
+
 use bytemuck::Pod;
+use glam::UVec3;
 
 use crate::{
-    bind::{BindGroup, BindGroupBuilder},
     buffer::{Buffer, BufferBuilder},
-    gpu::{Gpu, RenderCommand},
-    pipeline::{Pipeline, PipelineBuilder},
+    color::Srgba,
+    gpu::{Gpu, DrawCommand},
+    material::{Material, StandardMaterial2d},
+    texture::{SamplerBuilder, TextureBuilder},
     vertex::{Vertex, Vertex2},
 };
 
-pub struct ModelBuilder<V: Vertex> {
-    pipeline: Pipeline,
-    vertices: Vec<V>,
-    indices: Vec<u16>,
+pub struct MeshBuilder<V: Vertex> {
+    pub vertices: Vec<V>,
+    pub indices: Vec<u16>,
 }
-impl ModelBuilder<Vertex2> {
-    const SPRITE_VERT_BUFFER: [Vertex2; 4] = [
-        Vertex2::from_xy(-0.5, -0.5),
-        Vertex2::from_xy(0.5, -0.5),
-        Vertex2::from_xy(-0.5, -0.5),
-        Vertex2::from_xy(-0.5, 0.5),
-    ];
-    const SPRITE_IDX_BUFFER: [u16; 6] = [0, 1, 2, 0, 2, 3];
-
-    pub fn new_sprite(gpu: &Gpu) -> Self {
+impl<V: Vertex> Default for MeshBuilder<V> {
+    fn default() -> Self {
         Self {
-            pipeline: PipelineBuilder::build_2d_default(gpu),
-            vertices: Self::SPRITE_VERT_BUFFER.into(),
-            indices: Self::SPRITE_IDX_BUFFER.into(),
+            vertices: Default::default(),
+            indices: Default::default(),
         }
     }
 }
-impl<V: Vertex + Pod> ModelBuilder<V> {
-    pub fn vertices(&mut self, vertices: Vec<V>) -> &mut Self {
-        self.vertices = vertices;
-        self
-    }
-
-    pub fn indices(&mut self, indices: Vec<u16>) -> &mut Self {
-        self.indices = indices;
-        self
-    }
-
-    pub fn build(&self, gpu: &Gpu) -> Model {
-        Model {
-            pipeline: self.pipeline.clone(),
-            bind_group: BindGroupBuilder::default().build(gpu),
+impl<V: Vertex + Pod> MeshBuilder<V> {
+    pub fn build(&self, gpu: &Gpu) -> Mesh {
+        Mesh {
             vertices: BufferBuilder::new()
                 .usage(wgpu::BufferUsages::VERTEX)
                 .contents(&self.vertices)
@@ -58,40 +40,65 @@ impl<V: Vertex + Pod> ModelBuilder<V> {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct Model {
-    pipeline: Pipeline,
-    bind_group: BindGroup,
+#[derive(Debug, Clone)]
+pub struct Mesh {
     vertices: Buffer,
     indices: Buffer,
     n_indices: u32,
 }
-impl Model {
-    pub fn new(
-        pipeline: Pipeline,
-        bind_group: BindGroup,
-        vertices: Buffer,
-        indices: Buffer,
-        n_indices: u32,
-    ) -> Self {
-        Self {
-            pipeline,
-            bind_group,
-            vertices,
-            indices,
-            n_indices,
+impl Mesh {
+    pub fn get_vertices(&self) -> &Buffer {
+        &self.vertices
+    }
+
+    pub fn get_indices(&self) -> (&Buffer, u32) {
+        (&self.indices, self.n_indices)
+    }
+}
+
+pub struct ModelBuilder<V: Vertex> {
+    pub material: Box<dyn Material>,
+    pub mesh: MeshBuilder<V>,
+}
+impl<V: Vertex + Pod> ModelBuilder<V> {
+    pub fn build(&self, gpu: &Gpu) -> Model {
+        Model {
+            material: self.material.box_clone(),
+            mesh: self.mesh.build(gpu),
         }
     }
 }
-impl RenderCommand for Model {
-    fn render(&self, render_pass: &mut wgpu::RenderPass) {
-        render_pass.set_pipeline(self.pipeline.get_handle());
-        render_pass.set_vertex_buffer(0, self.vertices.get_handle().slice(..));
-        render_pass.set_bind_group(0, Some(self.bind_group.get_handle()), &[]);
+
+pub struct Model {
+    material: Box<dyn Material>,
+    mesh: Mesh,
+}
+impl Model {}
+impl Clone for Model {
+    fn clone(&self) -> Self {
+        Self {
+            material: self.material.box_clone(),
+            mesh: self.mesh.clone(),
+        }
+    }
+}
+impl Debug for Model {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Model")
+            .field("material", &self.material.as_debug())
+            .field("mesh", &self.mesh)
+            .finish()
+    }
+}
+impl DrawCommand for Model {
+    fn render(&self, gpu: &Gpu, render_pass: &mut wgpu::RenderPass) {
+        render_pass.set_pipeline(self.material.get_pipeline().get_handle());
+        render_pass.set_vertex_buffer(0, self.mesh.get_vertices().get_handle().slice(..));
+        render_pass.set_bind_group(0, Some(self.material.get_bind_group().get_handle()), &[]);
         render_pass.set_index_buffer(
-            self.indices.get_handle().slice(..),
+            self.mesh.get_indices().0.get_handle().slice(..),
             wgpu::IndexFormat::Uint16,
         );
-        render_pass.draw_indexed(0..self.n_indices, 0, 0..1);
+        render_pass.draw_indexed(0..self.mesh.get_indices().1, 0, 0..1);
     }
 }

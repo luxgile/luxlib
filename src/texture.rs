@@ -1,6 +1,6 @@
 use glam::UVec3;
 
-use crate::{bind::BindEntry, gpu::Gpu};
+use crate::{bind::BindEntry, color::Srgba, gpu::Gpu};
 
 #[derive(Clone)]
 pub enum TextureDimension {
@@ -24,6 +24,7 @@ pub struct TextureBuilder {
     pub mipmap: u32,
     pub dimensions: TextureDimension,
     pub samples: u32,
+    pub content: Option<Vec<u8>>,
 }
 impl Default for TextureBuilder {
     fn default() -> Self {
@@ -33,10 +34,23 @@ impl Default for TextureBuilder {
             mipmap: 1,
             samples: 1,
             dimensions: TextureDimension::D2,
+            content: None,
         }
     }
 }
 impl TextureBuilder {
+    pub fn build_white(gpu: &Gpu) -> Texture {
+        Self {
+            label: Some("white 1x1".into()),
+            size: UVec3::new(1, 1, 1),
+            mipmap: 1,
+            samples: 1,
+            dimensions: TextureDimension::D2,
+            content: Some(bytemuck::cast_slice(&[Srgba::WHITE]).to_vec()),
+        }
+        .build(gpu)
+    }
+
     pub fn build(&self, gpu: &Gpu) -> Texture {
         let texture_size = wgpu::Extent3d {
             width: self.size.x,
@@ -56,13 +70,20 @@ impl TextureBuilder {
 
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        Texture {
+        let texture = Texture {
             handle: texture,
             view,
+        };
+
+        if let Some(content) = &self.content {
+            texture.queue_write(gpu, content);
         }
+
+        texture
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct Texture {
     handle: wgpu::Texture,
     view: wgpu::TextureView,
@@ -91,10 +112,6 @@ impl Texture {
     }
 }
 impl BindEntry for Texture {
-    fn visibility(&self) -> wgpu::ShaderStages {
-        wgpu::ShaderStages::FRAGMENT
-    }
-
     fn resource(&self) -> wgpu::BindingResource<'_> {
         wgpu::BindingResource::TextureView(&self.view)
     }
@@ -173,6 +190,7 @@ impl SamplerBuilder {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Sampler {
     handle: wgpu::Sampler,
 }
@@ -182,10 +200,6 @@ impl Sampler {
     }
 }
 impl BindEntry for Sampler {
-    fn visibility(&self) -> wgpu::ShaderStages {
-        wgpu::ShaderStages::FRAGMENT
-    }
-
     fn resource(&self) -> wgpu::BindingResource<'_> {
         wgpu::BindingResource::Sampler(&self.handle)
     }

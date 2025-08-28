@@ -4,9 +4,9 @@ use wgpu::{BufferUsages, util::DeviceExt};
 use crate::gpu::Gpu;
 
 pub struct BufferBuilder {
-    label: Option<String>,
-    contents: Vec<u8>,
-    usage: BufferUsages,
+    pub label: Option<String>,
+    pub contents: Vec<u8>,
+    pub usage: BufferUsages,
 }
 impl Default for BufferBuilder {
     fn default() -> Self {
@@ -38,11 +38,13 @@ impl BufferBuilder {
     }
 
     pub fn build(&self, gpu: &Gpu) -> Buffer {
-        let buffer = gpu.get_device().create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: self.label.as_deref(),
-            contents: &self.contents,
-            usage: self.usage,
-        });
+        let buffer = gpu
+            .get_device()
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: self.label.as_deref(),
+                contents: &self.contents,
+                usage: self.usage,
+            });
         Buffer { handle: buffer }
     }
 }

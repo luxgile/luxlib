@@ -1,5 +1,9 @@
+use bytemuck::{Pod, Zeroable};
 
-#[derive(Clone, Copy, Default, Debug)]
+use crate::bind::BindEntry;
+
+#[repr(C)]
+#[derive(Clone, Copy, Default, Debug, Pod, Zeroable)]
 pub struct Srgba {
     pub r: f32,
     pub g: f32,

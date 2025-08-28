@@ -1,36 +1,31 @@
-use wgpu::VertexBufferLayout;
+use wgpu::{BindGroupLayout, VertexBufferLayout};
 
 use crate::{
+    bind::BindGroup,
     gpu::Gpu,
     vertex::{Vertex, Vertex2},
 };
 
-#[derive(Default)]
 pub struct ShaderBuilder<'a> {
     label: Option<String>,
-    source: Option<wgpu::ShaderSource<'a>>,
+    source: wgpu::ShaderSource<'a>,
+}
+impl<'a> Default for ShaderBuilder<'a> {
+    fn default() -> Self {
+        Self {
+            label: None,
+            source: wgpu::ShaderSource::Wgsl(include_str!("missing.wgsl").into()),
+        }
+    }
 }
 impl<'a> ShaderBuilder<'a> {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn label(&mut self, label: impl Into<String>) -> &mut Self {
-        self.label = Some(label.into());
-        self
-    }
-
-    pub fn source(&mut self, source: wgpu::ShaderSource<'a>) -> &mut Self {
-        self.source = Some(source);
-        self
-    }
-
-    pub fn build(&self, device: &wgpu::Device) -> Shader {
-        let source = self.source.clone().expect("source is expected to be set");
-        let wgpu_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: self.label.as_deref(),
-            source,
-        });
+    pub fn build(&self, gpu: &Gpu) -> Shader {
+        let wgpu_shader = gpu
+            .get_device()
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: self.label.as_deref(),
+                source: self.source.clone(),
+            });
         Shader {
             handle: wgpu_shader,
         }
@@ -42,10 +37,10 @@ pub struct Shader {
 }
 
 #[derive(Default)]
-pub struct LayoutBuilder {
+pub struct PipelineLayoutBuilder {
     label: Option<String>,
 }
-impl LayoutBuilder {
+impl PipelineLayoutBuilder {
     pub fn new() -> Self {
         Self::default()
     }
@@ -55,82 +50,65 @@ impl LayoutBuilder {
         self
     }
 
-    pub fn build(&self, device: &wgpu::Device) -> Layout {
-        let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: self.label.as_deref(),
-            bind_group_layouts: &[],
-            push_constant_ranges: &[],
-        });
-        Layout { handle: layout }
+    pub fn build(&self, gpu: &Gpu, bind_layouts: &[&BindGroupLayout]) -> PipelineLayout {
+        let layout = gpu
+            .get_device()
+            .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: self.label.as_deref(),
+                bind_group_layouts: bind_layouts,
+                push_constant_ranges: &[],
+            });
+        PipelineLayout { handle: layout }
     }
 }
 
-pub struct Layout {
+pub struct PipelineLayout {
     handle: wgpu::PipelineLayout,
 }
 
-pub struct PipelineBuilder {
+pub struct PipelineBuilder<'a> {
     label: Option<String>,
-    shader: Option<Shader>,
-    layout: Option<Layout>,
+    shader: ShaderBuilder<'a>,
+    layout: PipelineLayoutBuilder,
     vertex_layout: VertexBufferLayout<'static>,
 }
-impl Default for PipelineBuilder {
+impl<'a> Default for PipelineBuilder<'a> {
     fn default() -> Self {
         Self {
             label: Default::default(),
-            shader: Default::default(),
-            layout: Default::default(),
+            shader: ShaderBuilder::default(),
+            layout: PipelineLayoutBuilder::default(),
             vertex_layout: Vertex2::get_layout(),
         }
     }
 }
-impl PipelineBuilder {
-    pub fn new() -> Self {
-        Self::default()
+impl<'a> PipelineBuilder<'a> {
+    pub fn build_2d_default(gpu: &Gpu, bind_group: &BindGroup) -> Pipeline {
+        Self {
+            label: Some("2d pipeline".into()),
+            shader: ShaderBuilder {
+                label: Some("2d shader".into()),
+                source: wgpu::ShaderSource::Wgsl(include_str!("2d.wgsl").into()),
+            },
+            layout: PipelineLayoutBuilder {
+                label: Some("2d layout".into()),
+            },
+            vertex_layout: Vertex2::get_layout(),
+        }
+        .build(gpu, Some(bind_group))
     }
 
-    pub fn label(&mut self, label: impl Into<String>) -> &mut Self {
-        self.label = Some(label.into());
-        self
-    }
+    pub fn build(&self, gpu: &Gpu, bind_layout: Option<&BindGroup>) -> Pipeline {
+        let device = gpu.get_device();
+        let config = gpu.get_config();
 
-    pub fn shader(&mut self, shader: Shader) -> &mut Self {
-        self.shader = Some(shader);
-        self
-    }
+        let bind_layouts = match bind_layout {
+            Some(bind_layout) => vec![bind_layout.get_layout()],
+            None => Vec::new(),
+        };
 
-    pub fn vertex_layout<T: Vertex>(&mut self) -> &mut Self {
-        self.vertex_layout = T::get_layout();
-        self
-    }
-
-    pub fn layout(&mut self, layout: Layout) -> &mut Self {
-        self.layout = Some(layout);
-        self
-    }
-
-    pub fn build_2d_default(gpu: &Gpu) -> Pipeline {
-        Self::new()
-            .label("2d pipeline")
-            .shader(
-                ShaderBuilder::new()
-                    .label("2d shader")
-                    .source(wgpu::ShaderSource::Wgsl(include_str!("2d.wgsl").into()))
-                    .build(gpu.get_device()),
-            )
-            .layout(
-                LayoutBuilder::new()
-                    .label("2d layout")
-                    .build(gpu.get_device()),
-            )
-            .vertex_layout::<Vertex2>()
-            .build(gpu.get_device(), gpu.get_config())
-    }
-
-    pub fn build(&self, device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) -> Pipeline {
-        let shader = self.shader.as_ref().expect("shader must be set");
-        let layout = self.layout.as_ref().expect("layout must be set");
+        let layout = self.layout.build(gpu, &bind_layouts);
+        let shader = self.shader.build(gpu);
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: self.label.as_deref(),
