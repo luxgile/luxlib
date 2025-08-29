@@ -3,7 +3,7 @@ use wgpu::Buffer;
 
 use crate::{
     color::Srgba,
-    gpu::{DrawCommand, Gpu},
+    gpu::{DrawCommand, Gpu, RenderContext},
     material::Material,
 };
 
@@ -57,22 +57,31 @@ impl Default for DrawRect {
     }
 }
 impl DrawCommand for DrawRect {
-    fn render(&self, gpu: &Gpu, render_pass: &mut wgpu::RenderPass) {
+    fn render(&self, gpu: &Gpu, ctx: &mut RenderContext) {
         let mesh = gpu.get_constants().get_quad_mesh();
         let mut material = gpu.get_constants().get_default_2d_material().clone();
+        let window_size = gpu.get_main_window().inner_size();
+        material.set_view_projection(
+            ctx.camera2d.position,
+            window_size.width as f32,
+            window_size.height as f32,
+        );
         material.set_color(self.color);
         material.set_model(self.position, self.euler_angle.to_radians(), self.rect.size);
-        material.set_view_projection(Vec2::ZERO, 800.0, 600.0);
         material.rebuild(gpu);
 
-        render_pass.set_pipeline(material.get_pipeline().get_handle());
-        render_pass.set_bind_group(0, Some(material.get_bind_group().get_handle()), &[]);
-        render_pass.set_vertex_buffer(0, mesh.get_vertices().get_handle().slice(..));
-        render_pass.set_index_buffer(
+        ctx.render_pass
+            .set_pipeline(material.get_pipeline().get_handle());
+        ctx.render_pass
+            .set_bind_group(0, Some(material.get_bind_group().get_handle()), &[]);
+        ctx.render_pass
+            .set_vertex_buffer(0, mesh.get_vertices().get_handle().slice(..));
+        ctx.render_pass.set_index_buffer(
             mesh.get_indices().0.get_handle().slice(..),
             wgpu::IndexFormat::Uint16,
         );
-        render_pass.draw_indexed(0..mesh.get_indices().1, 0, 0..1);
+        ctx.render_pass
+            .draw_indexed(0..mesh.get_indices().1, 0, 0..1);
     }
 }
 
@@ -86,7 +95,7 @@ pub struct DrawCircle {
     color: Srgba,
 }
 impl DrawCommand for DrawCircle {
-    fn render(&self, gpu: &Gpu, render_pass: &mut wgpu::RenderPass) {}
+    fn render(&self, gpu: &Gpu, ctx: &mut RenderContext) {}
 }
 
 #[derive(Default, Clone, Debug)]

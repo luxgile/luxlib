@@ -40,12 +40,14 @@ pub struct App<T> {
     frame_loop: FrameLoop<T>,
     desc: Option<AppDesc>,
 
+    frames: u64,
     last_frame_time: Instant,
 }
 impl<T> App<T> {
     pub fn new(init_loop: InitFn<T>, frame_loop: FrameLoop<T>) -> Self {
         Self {
             last_frame_time: Instant::now(),
+            frames: 0,
             input: Input::default(),
             state: None,
             init_loop,
@@ -72,7 +74,7 @@ impl<T> ApplicationHandler<()> for App<T> {
 
         let gpu = pollster::block_on(Gpu::new(window)).unwrap();
 
-        self.state = Some((self.init_loop)(&mut Frame::new(0.0, &self.input, &gpu)));
+        self.state = Some((self.init_loop)(&mut Frame::new(0.0, 0, &self.input, &gpu)));
 
         self.gpu = Some(gpu);
     }
@@ -105,10 +107,11 @@ impl<T> ApplicationHandler<()> for App<T> {
 
                 let render_queue = {
                     let state = self.state.as_mut().unwrap();
-                    let mut frame = Frame::new(dt, &self.input, gpu);
+                    let mut frame = Frame::new(dt, self.frames, &self.input, gpu);
                     (self.frame_loop)(&mut frame, state).unwrap_or_default()
                 };
 
+                self.frames += 1;
                 self.input.advance();
 
                 gpu.render_queue(&render_queue);

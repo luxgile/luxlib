@@ -6,7 +6,7 @@ use glam::UVec3;
 use crate::{
     buffer::{Buffer, BufferBuilder},
     color::Srgba,
-    gpu::{Gpu, DrawCommand},
+    gpu::{DrawCommand, Gpu, RenderContext},
     material::{Material, StandardMaterial2d},
     texture::{SamplerBuilder, TextureBuilder},
     vertex::{Vertex, Vertex2},
@@ -91,14 +91,14 @@ impl Debug for Model {
     }
 }
 impl DrawCommand for Model {
-    fn render(&self, gpu: &Gpu, render_pass: &mut wgpu::RenderPass) {
-        render_pass.set_pipeline(self.material.get_pipeline().get_handle());
-        render_pass.set_vertex_buffer(0, self.mesh.get_vertices().get_handle().slice(..));
-        render_pass.set_bind_group(0, Some(self.material.get_bind_group().get_handle()), &[]);
-        render_pass.set_index_buffer(
+    fn render(&self, gpu: &Gpu, ctx: &mut RenderContext) {
+        ctx.render_pass.set_pipeline(self.material.get_pipeline().get_handle());
+        ctx.render_pass.set_vertex_buffer(0, self.mesh.get_vertices().get_handle().slice(..));
+        ctx.render_pass.set_bind_group(0, Some(self.material.get_bind_group().get_handle()), &[]);
+        ctx.render_pass.set_index_buffer(
             self.mesh.get_indices().0.get_handle().slice(..),
             wgpu::IndexFormat::Uint16,
         );
-        render_pass.draw_indexed(0..self.mesh.get_indices().1, 0, 0..1);
+        ctx.render_pass.draw_indexed(0..self.mesh.get_indices().1, 0, 0..1);
     }
 }

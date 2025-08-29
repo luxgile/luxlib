@@ -6,31 +6,41 @@ use winit::window::Window;
 
 use crate::{
     LResult, LuxError,
-    buffer::Buffer,
     color::Srgba,
     material::StandardMaterial2d,
     model::{Mesh, MeshBuilder},
-    pipeline::Pipeline,
-    shapes::{DrawRect, Rect},
+    shapes::DrawRect,
     vertex::Vertex2,
 };
 
 pub trait DrawCommand {
-    fn render(&self, gpu: &Gpu, render_pass: &mut wgpu::RenderPass);
+    fn render(&self, gpu: &Gpu, ctx: &mut RenderContext);
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Camera2d {
     pub position: Vec2,
 }
 
-pub struct UpdateCamera {
+#[derive(Default)]
+pub struct Update2d {
     pub camera: Camera2d,
 }
-impl DrawCommand for UpdateCamera {
-    fn render(&self, gpu: &Gpu, render_pass: &mut wgpu::RenderPass) {
-        todo!()
+impl Update2d {
+    pub fn camera(&mut self, camera: Camera2d) -> &mut Self {
+        self.camera = camera;
+        self
     }
+}
+impl DrawCommand for Update2d {
+    fn render(&self, _gpu: &Gpu, ctx: &mut RenderContext) {
+        ctx.camera2d = self.camera.clone();
+    }
+}
+
+pub struct RenderContext<'a> {
+    pub render_pass: wgpu::RenderPass<'a>,
+    pub camera2d: Camera2d,
 }
 
 #[derive(Default)]
@@ -60,7 +70,13 @@ impl RenderQueue {
         self.commands.push(Box::new(command.clone()));
     }
 
-    pub fn rect(&mut self, closure: impl Fn(&mut DrawRect) -> &mut DrawRect) {
+    pub fn update_2d(&mut self, closure: impl Fn(&mut Update2d)) {
+        let mut update = Update2d::default();
+        closure(&mut update);
+        self.commands.push(Box::new(update));
+    }
+
+    pub fn rect(&mut self, closure: impl Fn(&mut DrawRect)) {
         let mut draw = DrawRect::default();
         closure(&mut draw);
         self.commands.push(Box::new(draw));
@@ -261,8 +277,12 @@ impl Gpu {
                 timestamp_writes: None,
             });
 
+            let mut ctx = RenderContext {
+                render_pass,
+                camera2d: Camera2d::default(),
+            };
             for cmd in render_queue.get_commands() {
-                cmd.render(self, &mut render_pass);
+                cmd.render(self, &mut ctx);
             }
         }
 

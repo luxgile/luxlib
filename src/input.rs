@@ -246,6 +246,7 @@ impl Input {
 
         if input_key.is_none() {
             warn!("key input not handled {event:?}");
+            return;
         }
 
         let input_key = input_key.unwrap();
