@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 
-use glam::UVec3;
+use glam::{UVec2, UVec3};
 use once_cell::sync::OnceCell;
 
 use crate::{bind::BindEntry, color::Srgba, gpu::Gpu};
@@ -103,6 +103,11 @@ impl Texture {
 
     pub fn get_handle(&self) -> &wgpu::Texture {
         &self.handle
+    }
+
+    pub fn get_size(&self) -> UVec3 {
+        let size = self.get_handle().size();
+        UVec3::new(size.width, size.height, size.depth_or_array_layers)
     }
 
     pub fn queue_write(&self, gpu: &Gpu, pixels: &[u8]) {

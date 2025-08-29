@@ -15,7 +15,6 @@ use winit::{
 };
 
 use crate::{
-    color::Srgba,
     frame::Frame,
     gpu::{Gpu, RenderQueue},
     input::Input,
@@ -60,6 +59,7 @@ impl<T> App<T> {
 
 impl<T> ApplicationHandler<()> for App<T> {
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        // Create the window
         let window_attributes = Window::default_attributes();
         let window = Arc::new(
             event_loop
@@ -67,14 +67,17 @@ impl<T> ApplicationHandler<()> for App<T> {
                 .expect("error creating new window"),
         );
 
+        // Setup window with config
         if let Some(config) = &self.desc {
             window.set_title(&config.title);
             let _ = window.request_inner_size(LogicalSize::new(config.size.x, config.size.y));
         }
 
+        // Create GPU connection
         let mut gpu = pollster::block_on(Gpu::new(window)).unwrap();
         gpu.setup_constants();
 
+        // App init function
         self.state = Some((self.init_loop)(&mut Frame::new(0.0, 0, &self.input, &gpu)));
 
         self.gpu = Some(gpu);
@@ -83,7 +86,7 @@ impl<T> ApplicationHandler<()> for App<T> {
     fn window_event(
         &mut self,
         event_loop: &winit::event_loop::ActiveEventLoop,
-        window_id: winit::window::WindowId,
+        _window_id: winit::window::WindowId,
         event: winit::event::WindowEvent,
     ) {
         let gpu = match &mut self.gpu {

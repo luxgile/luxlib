@@ -2,17 +2,25 @@ use crate::{
     color::Srgba,
     gpu::{Gpu, RenderQueue},
     input::Input,
+    io::Io,
 };
 
 pub struct Frame<'a> {
     dt: f64,
     frame: u64,
+    io: Io,
     input: &'a Input,
     gpu: &'a Gpu,
 }
 impl<'a> Frame<'a> {
     pub fn new(dt: f64, frame: u64, input: &'a Input, gpu: &'a Gpu) -> Self {
-        Self { dt, frame, input, gpu }
+        Self {
+            dt,
+            frame,
+            io: Io,
+            input,
+            gpu,
+        }
     }
 
     pub fn dt(&self) -> f32 {
@@ -21,6 +29,10 @@ impl<'a> Frame<'a> {
 
     pub fn frame_number(&self) -> u64 {
         self.frame
+    }
+
+    pub fn io(&self) -> &Io {
+        &self.io
     }
 
     pub fn gpu(&self) -> &Gpu {

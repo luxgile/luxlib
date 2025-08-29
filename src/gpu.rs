@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use glam::Vec2;
+use glam::{Vec2, Vec3Swizzles};
 use log::{error, warn};
 use winit::window::Window;
 
@@ -115,6 +115,28 @@ pub struct DrawTexture {
     pub texture: Texture,
     pub tint: Srgba,
 }
+impl DrawTexture {
+    pub fn position(&mut self, position: Vec2) -> &mut Self {
+        self.position = position;
+        self
+    }
+    pub fn angle(&mut self, euler_angle: f32) -> &mut Self {
+        self.euler_angle = euler_angle;
+        self
+    }
+    pub fn scale(&mut self, scale: Vec2) -> &mut Self {
+        self.scale = scale;
+        self
+    }
+    pub fn texture(&mut self, texture: &Texture) -> &mut Self {
+        self.texture = texture.clone();
+        self
+    }
+    pub fn tint(&mut self, tint: Srgba) -> &mut Self {
+        self.tint = tint;
+        self
+    }
+}
 impl Default for DrawTexture {
     fn default() -> Self {
         Self {
@@ -122,8 +144,41 @@ impl Default for DrawTexture {
             euler_angle: Default::default(),
             scale: Vec2::ONE,
             texture: Texture::clone_white_texture(),
-            tint: Default::default(),
+            tint: Srgba::WHITE,
         }
+    }
+}
+impl DrawCommand for DrawTexture {
+    fn render(&self, gpu: &Gpu, ctx: &mut RenderContext) {
+        let mesh = Mesh::clone_quad_mesh();
+        let mut material = StandardMaterial2d::clone_global();
+        let window_size = gpu.get_main_window().inner_size();
+        material.set_view_projection(
+            ctx.camera2d.position,
+            window_size.width as f32,
+            window_size.height as f32,
+        );
+        material.set_color(self.tint);
+        material.set_model(
+            self.position,
+            self.euler_angle.to_radians(),
+            self.scale * self.texture.get_size().xy().as_vec2(),
+        );
+        material.set_texture(self.texture.clone());
+        material.rebuild(gpu);
+
+        ctx.render_pass
+            .set_pipeline(material.get_pipeline().get_handle());
+        ctx.render_pass
+            .set_bind_group(0, Some(material.get_bind_group().get_handle()), &[]);
+        ctx.render_pass
+            .set_vertex_buffer(0, mesh.get_vertices().get_handle().slice(..));
+        ctx.render_pass.set_index_buffer(
+            mesh.get_indices().0.get_handle().slice(..),
+            wgpu::IndexFormat::Uint16,
+        );
+        ctx.render_pass
+            .draw_indexed(0..mesh.get_indices().1, 0, 0..1);
     }
 }
 
@@ -164,6 +219,12 @@ impl RenderQueue {
         let mut draw = DrawRect::default();
         closure(&mut draw);
         self.commands.push(Box::new(draw));
+    }
+
+    pub fn texture(&mut self, closure: impl Fn(&mut DrawTexture)) {
+        let mut texture = DrawTexture::default();
+        closure(&mut texture);
+        self.commands.push(Box::new(texture));
     }
 }
 
@@ -212,13 +273,29 @@ pub struct Gpu {
     are_constants_setup: bool,
 }
 impl Gpu {
-    const QUAD_VERT_BUFFER: [Vertex2; 4] = [
-        Vertex2::from_xy(0.5, 0.5),
-        Vertex2::from_xy(-0.5, 0.5),
-        Vertex2::from_xy(-0.5, -0.5),
-        Vertex2::from_xy(0.5, -0.5),
+    const QUAD_VERTS: [Vertex2; 4] = [
+        Vertex2 {
+            position: Vec2::new(0.5, 0.5),
+            uv: Vec2::new(1.0, 1.0),
+            color: Srgba::WHITE,
+        },
+        Vertex2 {
+            position: Vec2::new(-0.5, 0.5),
+            uv: Vec2::new(0.0, 1.0),
+            color: Srgba::WHITE,
+        },
+        Vertex2 {
+            position: Vec2::new(-0.5, -0.5),
+            uv: Vec2::new(0.0, 0.0),
+            color: Srgba::WHITE,
+        },
+        Vertex2 {
+            position: Vec2::new(0.5, -0.5),
+            uv: Vec2::new(1.0, 0.0),
+            color: Srgba::WHITE,
+        },
     ];
-    const QUAD_IDX_BUFFER: [u16; 6] = [0, 1, 2, 0, 2, 3];
+    const QUAD_IDX: [u16; 6] = [0, 1, 2, 0, 2, 3];
 
     pub async fn new(window: Arc<Window>) -> LResult<Self> {
         let size = window.inner_size();
@@ -298,8 +375,8 @@ impl Gpu {
         QUAD_MESH
             .set(
                 MeshBuilder {
-                    vertices: Self::QUAD_VERT_BUFFER.to_vec(),
-                    indices: Self::QUAD_IDX_BUFFER.to_vec(),
+                    vertices: Self::QUAD_VERTS.to_vec(),
+                    indices: Self::QUAD_IDX.to_vec(),
                 }
                 .build(self),
             )
@@ -364,7 +441,7 @@ impl Gpu {
 
         {
             let clear_color = render_queue.get_clear_color();
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &view,

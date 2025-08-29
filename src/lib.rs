@@ -17,12 +17,16 @@ pub mod texture;
 pub mod bind;
 pub mod material;
 pub mod uniform;
+pub mod io;
 
 type LResult<T> = Result<T, LuxError>;
 #[derive(thiserror::Error, Debug)]
 pub enum LuxError {
-    #[error("wgpu failed to be initialized")]
+    #[error("wgpu failed to be initialized: {error}")]
     WgpuFailedInit { error: String },
+
+    #[error("failed reading file: {0}")]
+    IoError(String),
 }
 
 pub fn setup() -> AppBuilderStage1 {
