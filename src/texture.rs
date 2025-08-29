@@ -49,7 +49,7 @@ impl TextureBuilder {
             mipmap: 1,
             samples: 1,
             dimensions: TextureDimension::D2,
-            content: Some(bytemuck::cast_slice(&[Srgba::WHITE]).to_vec()),
+            content: Some(bytemuck::cast_slice(&[Srgba::WHITE.as_rgba8()]).to_vec()),
         }
         .build(gpu)
     }

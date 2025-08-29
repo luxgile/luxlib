@@ -4,6 +4,15 @@ use crate::bind::BindEntry;
 
 #[repr(C)]
 #[derive(Clone, Copy, Default, Debug, Pod, Zeroable)]
+pub struct Rgba8 {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+    pub a: u8,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Default, Debug, Pod, Zeroable)]
 pub struct Srgba {
     pub r: f32,
     pub g: f32,
@@ -13,6 +22,15 @@ pub struct Srgba {
 impl Srgba {
     pub fn new(r: f32, g: f32, b: f32, a: f32) -> Self {
         Self { r, g, b, a }
+    }
+
+    pub fn as_rgba8(&self) -> Rgba8 {
+        Rgba8 {
+            r: (self.r * 255.0) as u8,
+            g: (self.g * 255.0) as u8,
+            b: (self.b * 255.0) as u8,
+            a: (self.a * 255.0) as u8,
+        }
     }
 
     pub const CLEAR: Self = Self {

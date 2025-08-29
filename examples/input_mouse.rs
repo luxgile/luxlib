@@ -7,26 +7,22 @@ fn main() {
         .target_fps(60)
         .no_init()
         .frame_loop(|frame, _| {
-            let mut color = Srgba::BLACK;
+            let mut color = Srgba::DARK_GRAY;
             if frame.input().is_mouse_pressed(MouseInput::Left) {
-                color = Srgba::MAROON;
-            }
-            if frame.input().is_mouse_pressed(MouseInput::Middle) {
-                color = Srgba::OLIVE;
-            }
-            if frame.input().is_mouse_pressed(MouseInput::Right) {
-                color = Srgba::DARK_GRAY;
-            }
-            if frame.input().is_mouse_pressed(MouseInput::Back) {
+                color = Srgba::RED;
+            } else if frame.input().is_mouse_pressed(MouseInput::Middle) {
+                color = Srgba::BLUE;
+            } else if frame.input().is_mouse_pressed(MouseInput::Right) {
+                color = Srgba::PURPLE;
+            } else if frame.input().is_mouse_pressed(MouseInput::Back) {
                 color = Srgba::GREEN;
-            }
-            if frame.input().is_mouse_pressed(MouseInput::Forward) {
+            } else if frame.input().is_mouse_pressed(MouseInput::Forward) {
                 color = Srgba::ORANGE;
             }
 
             let position = frame.input().get_mouse_position();
 
-            let mut render = frame.render(Srgba::WHITE);
+            let mut render = frame.render(Srgba::SILVER);
             render.rect(|r| {
                 r.position(position).color(color);
             });

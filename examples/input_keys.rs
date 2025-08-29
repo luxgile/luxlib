@@ -28,7 +28,7 @@ fn main() {
                 game.position.y -= 100.0 * frame.dt();
             }
 
-            let mut render = frame.render(Srgba::WHITE);
+            let mut render = frame.render(Srgba::SILVER);
             render.rect(|r| {
                 r.position(game.position).color(Srgba::DARK_GRAY);
             });

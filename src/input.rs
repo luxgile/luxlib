@@ -114,6 +114,7 @@ pub enum MouseInput {
 pub struct Input {
     mouse_position: Vec2,
     mouse_wheel_delta: f32,
+
     mouse_just_pressed: Vec<MouseInput>,
     mouse_pressed: Vec<MouseInput>,
     mouse_just_released: Vec<MouseInput>,
@@ -125,9 +126,10 @@ pub struct Input {
 impl Input {
     pub fn advance(&mut self) {
         self.keys_pressed.extend_from_slice(&self.keys_just_pressed);
-        self.mouse_pressed.extend_from_slice(&self.mouse_just_pressed);
         self.keys_just_pressed.clear();
         self.keys_just_released.clear();
+
+        self.mouse_pressed.extend_from_slice(&self.mouse_just_pressed);
         self.mouse_just_pressed.clear();
         self.mouse_just_released.clear();
     }
