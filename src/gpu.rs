@@ -1,15 +1,16 @@
 use std::sync::Arc;
 
 use glam::Vec2;
-use log::warn;
+use log::{error, warn};
 use winit::window::Window;
 
 use crate::{
     LResult, LuxError,
     color::Srgba,
-    material::StandardMaterial2d,
-    model::{Mesh, MeshBuilder},
-    shapes::DrawRect,
+    material::{MATERIAL2D, Material, StandardMaterial2d},
+    model::{Mesh, MeshBuilder, QUAD_MESH},
+    shapes::Rect,
+    texture::{Texture, TextureBuilder, WHITE_TEXTURE},
     vertex::Vertex2,
 };
 
@@ -41,6 +42,89 @@ impl DrawCommand for Update2d {
 pub struct RenderContext<'a> {
     pub render_pass: wgpu::RenderPass<'a>,
     pub camera2d: Camera2d,
+}
+
+#[derive(Debug, Clone)]
+pub struct DrawRect {
+    pub position: Vec2,
+    pub euler_angle: f32,
+    pub rect: Rect,
+    pub color: Srgba,
+}
+impl DrawRect {
+    pub fn position(&mut self, position: Vec2) -> &mut Self {
+        self.position = position;
+        self
+    }
+    pub fn rect(&mut self, rect: Rect) -> &mut Self {
+        self.rect = rect;
+        self
+    }
+    pub fn color(&mut self, color: Srgba) -> &mut Self {
+        self.color = color;
+        self
+    }
+    pub fn angle(&mut self, euler_angle: f32) -> &mut Self {
+        self.euler_angle = euler_angle;
+        self
+    }
+}
+impl Default for DrawRect {
+    fn default() -> Self {
+        Self {
+            position: Default::default(),
+            euler_angle: 0.0,
+            rect: Rect::from_xy(25.0, 25.0),
+            color: Srgba::WHITE,
+        }
+    }
+}
+impl DrawCommand for DrawRect {
+    fn render(&self, gpu: &Gpu, ctx: &mut RenderContext) {
+        let mesh = Mesh::clone_quad_mesh();
+        let mut material = StandardMaterial2d::clone_global();
+        let window_size = gpu.get_main_window().inner_size();
+        material.set_view_projection(
+            ctx.camera2d.position,
+            window_size.width as f32,
+            window_size.height as f32,
+        );
+        material.set_color(self.color);
+        material.set_model(self.position, self.euler_angle.to_radians(), self.rect.size);
+        material.rebuild(gpu);
+
+        ctx.render_pass
+            .set_pipeline(material.get_pipeline().get_handle());
+        ctx.render_pass
+            .set_bind_group(0, Some(material.get_bind_group().get_handle()), &[]);
+        ctx.render_pass
+            .set_vertex_buffer(0, mesh.get_vertices().get_handle().slice(..));
+        ctx.render_pass.set_index_buffer(
+            mesh.get_indices().0.get_handle().slice(..),
+            wgpu::IndexFormat::Uint16,
+        );
+        ctx.render_pass
+            .draw_indexed(0..mesh.get_indices().1, 0, 0..1);
+    }
+}
+
+pub struct DrawTexture {
+    pub position: Vec2,
+    pub euler_angle: f32,
+    pub scale: Vec2,
+    pub texture: Texture,
+    pub tint: Srgba,
+}
+impl Default for DrawTexture {
+    fn default() -> Self {
+        Self {
+            position: Default::default(),
+            euler_angle: Default::default(),
+            scale: Vec2::ONE,
+            texture: Texture::clone_white_texture(),
+            tint: Default::default(),
+        }
+    }
 }
 
 #[derive(Default)]
@@ -83,40 +167,40 @@ impl RenderQueue {
     }
 }
 
-/// Used to hold meshes, shaders and other visual objects that are reused a lot.
-#[derive(Debug)]
-pub struct VisualConstants {
-    quad_mesh: Mesh,
-    default_2d_mat: StandardMaterial2d,
-}
-impl VisualConstants {
-    const QUAD_VERT_BUFFER: [Vertex2; 4] = [
-        Vertex2::from_xy(0.5, 0.5),
-        Vertex2::from_xy(-0.5, 0.5),
-        Vertex2::from_xy(-0.5, -0.5),
-        Vertex2::from_xy(0.5, -0.5),
-    ];
-    const QUAD_IDX_BUFFER: [u16; 6] = [0, 1, 2, 0, 2, 3];
-
-    pub fn new(gpu: &Gpu) -> Self {
-        Self {
-            quad_mesh: MeshBuilder {
-                vertices: Self::QUAD_VERT_BUFFER.to_vec(),
-                indices: Self::QUAD_IDX_BUFFER.to_vec(),
-            }
-            .build(gpu),
-            default_2d_mat: StandardMaterial2d::new(gpu),
-        }
-    }
-
-    pub fn get_quad_mesh(&self) -> &Mesh {
-        &self.quad_mesh
-    }
-
-    pub fn get_default_2d_material(&self) -> &StandardMaterial2d {
-        &self.default_2d_mat
-    }
-}
+// /// Used to hold meshes, shaders and other visual objects that are reused a lot.
+// #[derive(Debug)]
+// pub struct VisualConstants {
+//     quad_mesh: Mesh,
+//     default_2d_mat: StandardMaterial2d,
+// }
+// impl VisualConstants {
+//     const QUAD_VERT_BUFFER: [Vertex2; 4] = [
+//         Vertex2::from_xy(0.5, 0.5),
+//         Vertex2::from_xy(-0.5, 0.5),
+//         Vertex2::from_xy(-0.5, -0.5),
+//         Vertex2::from_xy(0.5, -0.5),
+//     ];
+//     const QUAD_IDX_BUFFER: [u16; 6] = [0, 1, 2, 0, 2, 3];
+//
+//     pub fn new(gpu: &Gpu) -> Self {
+//         Self {
+//             quad_mesh: MeshBuilder {
+//                 vertices: Self::QUAD_VERT_BUFFER.to_vec(),
+//                 indices: Self::QUAD_IDX_BUFFER.to_vec(),
+//             }
+//             .build(gpu),
+//             default_2d_mat: StandardMaterial2d::new(gpu),
+//         }
+//     }
+//
+//     pub fn get_quad_mesh(&self) -> &Mesh {
+//         &self.quad_mesh
+//     }
+//
+//     pub fn get_default_2d_material(&self) -> &StandardMaterial2d {
+//         &self.default_2d_mat
+//     }
+// }
 
 pub struct Gpu {
     main_window: Arc<Window>,
@@ -125,9 +209,17 @@ pub struct Gpu {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     is_surface_setup: bool,
-    constants: Option<VisualConstants>,
+    are_constants_setup: bool,
 }
 impl Gpu {
+    const QUAD_VERT_BUFFER: [Vertex2; 4] = [
+        Vertex2::from_xy(0.5, 0.5),
+        Vertex2::from_xy(-0.5, 0.5),
+        Vertex2::from_xy(-0.5, -0.5),
+        Vertex2::from_xy(0.5, -0.5),
+    ];
+    const QUAD_IDX_BUFFER: [u16; 6] = [0, 1, 2, 0, 2, 3];
+
     pub async fn new(window: Arc<Window>) -> LResult<Self> {
         let size = window.inner_size();
         let wgpu_instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
@@ -180,20 +272,40 @@ impl Gpu {
             desired_maximum_frame_latency: 2,
         };
 
-        let mut gpu = Self {
+        let gpu = Self {
             config,
             surface,
             device,
             queue,
             main_window: window,
             is_surface_setup: false,
-            constants: None,
+            are_constants_setup: false,
         };
 
-        let constants = VisualConstants::new(&gpu);
-        gpu.constants = Some(constants);
-
         Ok(gpu)
+    }
+
+    pub fn setup_constants(&mut self) {
+        if self.are_constants_setup {
+            warn!("constants have already been setup, ignoring...");
+            return;
+        }
+        self.are_constants_setup = true;
+
+        WHITE_TEXTURE
+            .set(TextureBuilder::build_white(self))
+            .unwrap();
+        QUAD_MESH
+            .set(
+                MeshBuilder {
+                    vertices: Self::QUAD_VERT_BUFFER.to_vec(),
+                    indices: Self::QUAD_IDX_BUFFER.to_vec(),
+                }
+                .build(self),
+            )
+            .unwrap();
+
+        MATERIAL2D.set(StandardMaterial2d::new(self)).unwrap();
     }
 
     pub fn get_main_window(&self) -> &Window {
@@ -214,10 +326,6 @@ impl Gpu {
 
     pub fn get_config(&self) -> &wgpu::SurfaceConfiguration {
         &self.config
-    }
-
-    pub fn get_constants(&self) -> &VisualConstants {
-        self.constants.as_ref().unwrap()
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {

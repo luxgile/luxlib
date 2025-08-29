@@ -72,7 +72,8 @@ impl<T> ApplicationHandler<()> for App<T> {
             let _ = window.request_inner_size(LogicalSize::new(config.size.x, config.size.y));
         }
 
-        let gpu = pollster::block_on(Gpu::new(window)).unwrap();
+        let mut gpu = pollster::block_on(Gpu::new(window)).unwrap();
+        gpu.setup_constants();
 
         self.state = Some((self.init_loop)(&mut Frame::new(0.0, 0, &self.input, &gpu)));
 

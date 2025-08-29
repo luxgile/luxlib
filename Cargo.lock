@@ -1155,6 +1155,7 @@ dependencies = [
  "image",
  "lazy_static",
  "log",
+ "once_cell",
  "pollster",
  "thiserror 2.0.16",
  "wgpu",

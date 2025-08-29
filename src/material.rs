@@ -2,6 +2,7 @@ use std::fmt::Debug;
 
 use bytemuck::{Pod, Zeroable};
 use glam::{Mat3, Mat4, Vec2};
+use once_cell::sync::OnceCell;
 
 use crate::{
     bind::{BindGroup, BindGroupBuilder, ShaderStage},
@@ -18,6 +19,8 @@ pub trait Material {
     fn box_clone(&self) -> Box<dyn Material>;
     fn as_debug(&self) -> &dyn Debug;
 }
+
+pub(crate) static MATERIAL2D: OnceCell<StandardMaterial2d> = OnceCell::new();
 
 #[derive(Debug, Clone)]
 pub struct StandardMaterial2d {
@@ -44,6 +47,13 @@ impl StandardMaterial2d {
             cached_pipeline: PipelineBuilder::default().build(gpu, None),
             cached_bind_group: BindGroupBuilder::default().build(gpu),
         }
+    }
+
+    pub fn clone_global() -> Self {
+        MATERIAL2D
+            .get()
+            .expect("material 2d not been set yet")
+            .clone()
     }
 
     pub fn set_texture(&mut self, texture: Texture) {

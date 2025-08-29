@@ -2,6 +2,7 @@ use std::fmt::Debug;
 
 use bytemuck::Pod;
 use glam::UVec3;
+use once_cell::sync::OnceCell;
 
 use crate::{
     buffer::{Buffer, BufferBuilder},
@@ -40,6 +41,8 @@ impl<V: Vertex + Pod> MeshBuilder<V> {
     }
 }
 
+pub(crate) static QUAD_MESH: OnceCell<Mesh> = OnceCell::new();
+
 #[derive(Debug, Clone)]
 pub struct Mesh {
     vertices: Buffer,
@@ -53,6 +56,10 @@ impl Mesh {
 
     pub fn get_indices(&self) -> (&Buffer, u32) {
         (&self.indices, self.n_indices)
+    }
+
+    pub fn clone_quad_mesh() -> Mesh {
+        QUAD_MESH.get().expect("quad mesh has not been set yet").clone()
     }
 }
 

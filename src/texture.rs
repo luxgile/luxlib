@@ -1,4 +1,7 @@
+use std::sync::Mutex;
+
 use glam::UVec3;
+use once_cell::sync::OnceCell;
 
 use crate::{bind::BindEntry, color::Srgba, gpu::Gpu};
 
@@ -83,12 +86,21 @@ impl TextureBuilder {
     }
 }
 
+pub(crate) static WHITE_TEXTURE: OnceCell<Texture> = OnceCell::new();
+
 #[derive(Clone, Debug)]
 pub struct Texture {
     handle: wgpu::Texture,
     view: wgpu::TextureView,
 }
 impl Texture {
+    pub fn clone_white_texture() -> Texture {
+        WHITE_TEXTURE
+            .get()
+            .expect("no white texture has been set yet")
+            .clone()
+    }
+
     pub fn get_handle(&self) -> &wgpu::Texture {
         &self.handle
     }
