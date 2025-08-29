@@ -1,25 +1,26 @@
 #![allow(dead_code)]
 
+use std::{any::Any, error::Error, fmt::Display};
+
 use crate::app::{AppBuilderStage1, AppBuilderStage2, InitFn};
 
 pub mod app;
+pub mod bind;
 pub mod buffer;
 pub mod color;
+pub mod frame;
 pub mod gpu;
+pub mod input;
+pub mod io;
+pub mod material;
 pub mod model;
 pub mod pipeline;
 pub mod prelude;
-pub mod vertex;
-pub mod frame;
-pub mod input;
 pub mod shapes;
 pub mod texture;
-pub mod bind;
-pub mod material;
 pub mod uniform;
-pub mod io;
+pub mod vertex;
 
-type LResult<T> = Result<T, LuxError>;
 #[derive(thiserror::Error, Debug)]
 pub enum LuxError {
     #[error("wgpu failed to be initialized: {error}")]
@@ -27,10 +28,15 @@ pub enum LuxError {
 
     #[error("failed reading file: {0}")]
     IoError(String),
+
+    #[error("issue found while starting app")]
+    AppInitFailed,
+
+    #[error("issue found on app's frame")]
+    AppFrameFailed,
 }
 
 pub fn setup() -> AppBuilderStage1 {
     env_logger::init();
     AppBuilderStage1::default()
 }
-

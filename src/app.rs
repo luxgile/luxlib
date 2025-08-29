@@ -21,8 +21,8 @@ use crate::{
 };
 
 // pub trait FrameLoop {}
-pub type InitFn<T> = fn(&mut Frame) -> T;
-pub type FrameLoop<T> = fn(&mut Frame, &mut T) -> Option<RenderQueue>;
+pub type InitFn<T> = fn(&mut Frame) -> anyhow::Result<T>;
+pub type FrameLoop<T> = fn(&mut Frame, &mut T) -> anyhow::Result<RenderQueue>;
 
 #[derive(Clone)]
 pub struct AppDesc {
@@ -78,7 +78,7 @@ impl<T> ApplicationHandler<()> for App<T> {
         gpu.setup_constants();
 
         // App init function
-        self.state = Some((self.init_loop)(&mut Frame::new(0.0, 0, &self.input, &gpu)));
+        self.state = Some((self.init_loop)(&mut Frame::new(0.0, 0, &self.input, &gpu)).unwrap());
 
         self.gpu = Some(gpu);
     }
@@ -164,7 +164,7 @@ impl AppBuilderStage1 {
     }
 
     pub fn no_init(&mut self) -> AppBuilderStage2<()> {
-        AppBuilderStage2::new(self.clone(), |_| ())
+        AppBuilderStage2::new(self.clone(), |_| (Ok(())))
     }
 
     pub fn init<T>(&mut self, init_fn: InitFn<T>) -> AppBuilderStage2<T> {
@@ -192,14 +192,14 @@ impl<T> AppBuilderStage2<T> {
     fn new(stage1: AppBuilderStage1, init_fn: InitFn<T>) -> Self {
         Self {
             stage1,
-            frame_loop: |_, _| None,
+            frame_loop: |_, _| Ok(RenderQueue::default()),
             init_fn,
         }
     }
 
     pub fn frame_loop(
         &mut self,
-        frame_loop: fn(&mut Frame, &mut T) -> Option<RenderQueue>,
+        frame_loop: fn(&mut Frame, &mut T) -> anyhow::Result<RenderQueue>,
     ) -> &mut Self {
         self.frame_loop = frame_loop;
         self

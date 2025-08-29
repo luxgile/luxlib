@@ -9,8 +9,10 @@ fn main() {
         .title("My app")
         .window_size(UVec2::new(800, 600))
         .target_fps(60)
-        .init(|_| Game {
-            position: [400.0, 300.0].into(),
+        .init(|_| {
+            Ok(Game {
+                position: [400.0, 300.0].into(),
+            })
         })
         .frame_loop(|frame, game| {
             if frame.input().is_key_pressed(KeyInput::Right) {
@@ -30,7 +32,7 @@ fn main() {
             render.rect(|r| {
                 r.position(game.position).color(Srgba::DARK_GRAY);
             });
-            Some(render)
+            Ok(render)
         })
         .start();
 }

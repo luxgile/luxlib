@@ -50,12 +50,12 @@ fn main() {
             }
             .build(frame.gpu());
 
-            Game { sprite }
+            Ok(Game { sprite })
         })
         .frame_loop(|frame, state| {
             let mut render = frame.render(Srgba::WHITE);
             render.draw(&state.sprite);
-            Some(render)
+            Ok(render)
         })
         .start();
 }

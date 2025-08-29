@@ -1148,6 +1148,7 @@ dependencies = [
 name = "luxlib"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "bitflags 2.9.3",
  "bytemuck",
  "env_logger",

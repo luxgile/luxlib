@@ -1,7 +1,7 @@
 use glam::UVec3;
 use image::GenericImageView;
 
-use crate::{LResult, LuxError, gpu::Gpu, prelude::Texture, texture::TextureBuilder};
+use crate::{Error, LuxError, gpu::Gpu, prelude::Texture, texture::TextureBuilder};
 
 pub struct Image {
     image: image::DynamicImage,
@@ -23,7 +23,7 @@ impl Image {
 
 pub struct Io;
 impl Io {
-    pub fn load_image(&self, path: impl Into<String>) -> LResult<Image> {
+    pub fn load_image(&self, path: impl Into<String>) -> Result<Image, LuxError> {
         let image = image::ImageReader::open(path.into())
             .map_err(|e| LuxError::IoError(e.to_string()))?
             .decode()

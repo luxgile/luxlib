@@ -5,13 +5,7 @@ use log::{error, warn};
 use winit::window::Window;
 
 use crate::{
-    LResult, LuxError,
-    color::Srgba,
-    material::{MATERIAL2D, Material, StandardMaterial2d},
-    model::{Mesh, MeshBuilder, QUAD_MESH},
-    shapes::Rect,
-    texture::{Texture, TextureBuilder, WHITE_TEXTURE},
-    vertex::Vertex2,
+    color::Srgba, material::{Material, StandardMaterial2d, MATERIAL2D}, model::{Mesh, MeshBuilder, QUAD_MESH}, shapes::Rect, texture::{Texture, TextureBuilder, WHITE_TEXTURE}, vertex::Vertex2, Error, LuxError
 };
 
 pub trait DrawCommand {
@@ -297,7 +291,7 @@ impl Gpu {
     ];
     const QUAD_IDX: [u16; 6] = [0, 1, 2, 0, 2, 3];
 
-    pub async fn new(window: Arc<Window>) -> LResult<Self> {
+    pub async fn new(window: Arc<Window>) -> Result<Self, LuxError> {
         let size = window.inner_size();
         let wgpu_instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
             backends: wgpu::Backends::PRIMARY,
