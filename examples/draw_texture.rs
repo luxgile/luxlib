@@ -13,7 +13,7 @@ fn main() {
             texture: frame
                 .io()
                 .load_image(
-                    "/mnt/6f7e372e-8cd1-4f27-980d-5342a70722c5/dev/luxlib/examples/texture.png",
+                    "examples/texture.png",
                 )
                 .unwrap()
                 .create_texture(frame.gpu()),
