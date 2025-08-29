@@ -5,7 +5,13 @@ use log::{error, warn};
 use winit::window::Window;
 
 use crate::{
-    color::Srgba, material::{Material, StandardMaterial2d, MATERIAL2D}, model::{Mesh, MeshBuilder, QUAD_MESH}, shapes::Rect, texture::{Texture, TextureBuilder, WHITE_TEXTURE}, vertex::Vertex2, Error, LuxError
+    Error, LuxError,
+    color::Srgba,
+    material::{MATERIAL2D, Material, StandardMaterial2d},
+    model::{Mesh, MeshBuilder, QUAD_MESH},
+    shapes::Rect,
+    texture::{Texture, TextureBuilder, WHITE_TEXTURE},
+    vertex::Vertex2,
 };
 
 pub trait DrawCommand {
@@ -42,12 +48,17 @@ pub struct RenderContext<'a> {
 pub struct DrawRect {
     pub position: Vec2,
     pub euler_angle: f32,
+    pub scale: Vec2,
     pub rect: Rect,
     pub color: Srgba,
 }
 impl DrawRect {
     pub fn position(&mut self, position: Vec2) -> &mut Self {
         self.position = position;
+        self
+    }
+    pub fn scale(&mut self, scale: Vec2) -> &mut Self {
+        self.scale = scale;
         self
     }
     pub fn rect(&mut self, rect: Rect) -> &mut Self {
@@ -68,6 +79,7 @@ impl Default for DrawRect {
         Self {
             position: Default::default(),
             euler_angle: 0.0,
+            scale: Vec2::ONE,
             rect: Rect::from_xy(25.0, 25.0),
             color: Srgba::WHITE,
         }
@@ -84,7 +96,11 @@ impl DrawCommand for DrawRect {
             window_size.height as f32,
         );
         material.set_color(self.color);
-        material.set_model(self.position, self.euler_angle.to_radians(), self.rect.size);
+        material.set_model(
+            self.position,
+            self.euler_angle.to_radians(),
+            self.rect.size * self.scale,
+        );
         material.rebuild(gpu);
 
         ctx.render_pass

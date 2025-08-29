@@ -4,7 +4,7 @@ use glam::Vec2;
 use log::{error, warn};
 use winit::{
     dpi::PhysicalPosition,
-    event::{self, DeviceId, ElementState, KeyEvent, MouseButton},
+    event::{self, DeviceId, ElementState, KeyEvent, MouseButton, MouseScrollDelta},
     keyboard::KeyCode,
 };
 
@@ -129,9 +129,12 @@ impl Input {
         self.keys_just_pressed.clear();
         self.keys_just_released.clear();
 
-        self.mouse_pressed.extend_from_slice(&self.mouse_just_pressed);
+        self.mouse_pressed
+            .extend_from_slice(&self.mouse_just_pressed);
         self.mouse_just_pressed.clear();
         self.mouse_just_released.clear();
+
+        self.mouse_wheel_delta = 0.0;
     }
 
     fn press_mouse(&mut self, key: MouseInput) {
@@ -208,8 +211,11 @@ impl Input {
         self.mouse_position = Vec2::new(pos.x as f32, pos.y as f32);
     }
 
-    pub(crate) fn set_mouse_wheel(&mut self, delta: f32) {
-        self.mouse_wheel_delta = delta;
+    pub(crate) fn handle_mouse_wheel(&mut self, delta: MouseScrollDelta) {
+        match delta {
+            MouseScrollDelta::LineDelta(_, y) => self.mouse_wheel_delta = y,
+            MouseScrollDelta::PixelDelta(delta) => self.mouse_wheel_delta = delta.y as f32,
+        }
     }
 
     pub(crate) fn handle_mouse_input(&mut self, event: ElementState, button: MouseButton) {

@@ -141,7 +141,7 @@ impl<T> ApplicationHandler<()> for App<T> {
                 self.input.handle_mouse_input(state, button);
             }
             WindowEvent::MouseWheel { delta, .. } => {
-                // self.input.set_mouse_wheel(delta);
+                self.input.handle_mouse_wheel(delta);
             }
             _ => {}
         }

@@ -1,12 +1,16 @@
 use luxlib::prelude::*;
 
+struct Game {
+    cursor_size: f32,
+}
+
 fn main() {
     luxlib::setup()
         .title("Luxlib Example - Mouse Input")
         .window_size(UVec2::new(800, 600))
         .target_fps(60)
-        .no_init()
-        .frame_loop(|frame, _| {
+        .init(|_| Ok(Game { cursor_size: 1.0 }))
+        .frame_loop(|frame, game| {
             let mut color = Srgba::DARK_GRAY;
             if frame.input().is_mouse_pressed(MouseInput::Left) {
                 color = Srgba::RED;
@@ -20,11 +24,14 @@ fn main() {
                 color = Srgba::ORANGE;
             }
 
+            game.cursor_size += frame.input().get_wheel_delta() * 0.5;
+            game.cursor_size = game.cursor_size.clamp(0.5, 25.0);
+
             let position = frame.input().get_mouse_position();
 
             let mut render = frame.render(Srgba::SILVER);
             render.rect(|r| {
-                r.position(position).color(color);
+                r.position(position).color(color).scale(Vec2::ONE * game.cursor_size);
             });
             Ok(render)
         })
