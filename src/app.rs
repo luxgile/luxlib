@@ -134,6 +134,15 @@ impl<T> ApplicationHandler<()> for App<T> {
                     event_loop.exit()
                 }
             }
+            WindowEvent::CursorMoved { position, .. } => {
+                self.input.set_mouse_position(position);
+            }
+            WindowEvent::MouseInput { state, button, .. } => {
+                self.input.handle_mouse_input(state, button);
+            }
+            WindowEvent::MouseWheel { delta, .. } => {
+                
+            }
             _ => {}
         }
     }

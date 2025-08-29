@@ -27,8 +27,7 @@ impl Io {
         let image = image::ImageReader::open(path.into())
             .map_err(|e| LuxError::IoError(e.to_string()))?
             .decode()
-            .map_err(|e| LuxError::IoError(e.to_string()))?
-            .flipv();
+            .map_err(|e| LuxError::IoError(e.to_string()))?;
 
         Ok(Image { image })
     }

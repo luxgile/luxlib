@@ -1,8 +1,10 @@
 use std::ops::Index;
 
+use glam::Vec2;
 use log::{error, warn};
 use winit::{
-    event::{self, DeviceId, KeyEvent},
+    dpi::PhysicalPosition,
+    event::{self, DeviceId, ElementState, KeyEvent, MouseButton},
     keyboard::KeyCode,
 };
 
@@ -99,8 +101,23 @@ pub enum KeyInput {
     Unknown, // For any keys we don't want to handle.
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+pub enum MouseInput {
+    Left,
+    Right,
+    Middle,
+    Back,
+    Forward,
+}
+
 #[derive(Default, Debug)]
 pub struct Input {
+    mouse_position: Vec2,
+    mouse_wheel_delta: f32,
+    mouse_just_pressed: Vec<MouseInput>,
+    mouse_pressed: Vec<MouseInput>,
+    mouse_just_released: Vec<MouseInput>,
+
     keys_just_pressed: Vec<KeyInput>,
     keys_pressed: Vec<KeyInput>,
     keys_just_released: Vec<KeyInput>,
@@ -108,8 +125,50 @@ pub struct Input {
 impl Input {
     pub fn advance(&mut self) {
         self.keys_pressed.extend_from_slice(&self.keys_just_pressed);
+        self.mouse_pressed.extend_from_slice(&self.mouse_just_pressed);
         self.keys_just_pressed.clear();
         self.keys_just_released.clear();
+        self.mouse_just_pressed.clear();
+        self.mouse_just_released.clear();
+    }
+
+    fn press_mouse(&mut self, key: MouseInput) {
+        if self.mouse_pressed.contains(&key) || self.mouse_just_pressed.contains(&key) {
+            return;
+        }
+        self.mouse_just_pressed.push(key);
+    }
+
+    fn release_mouse(&mut self, key: MouseInput) {
+        if !self.mouse_pressed.contains(&key) {
+            return;
+        }
+        self.mouse_pressed.retain(|&x| x != key);
+        self.mouse_just_released.push(key);
+    }
+
+    pub fn is_mouse_just_pressed(&self, mouse: MouseInput) -> bool {
+        self.mouse_just_pressed.contains(&mouse)
+    }
+
+    pub fn is_mouse_pressed(&self, mouse: MouseInput) -> bool {
+        self.mouse_just_pressed.contains(&mouse) || self.mouse_pressed.contains(&mouse)
+    }
+
+    pub fn is_mouse_just_released(&self, mouse: MouseInput) -> bool {
+        self.mouse_just_released.contains(&mouse)
+    }
+
+    pub fn is_mouse_released(&self, mouse: MouseInput) -> bool {
+        !self.is_mouse_pressed(mouse)
+    }
+
+    pub fn get_mouse_position(&self) -> Vec2 {
+        self.mouse_position
+    }
+
+    pub fn get_wheel_delta(&self) -> f32 {
+        self.mouse_wheel_delta
     }
 
     fn press_key(&mut self, key: KeyInput) {
@@ -141,6 +200,34 @@ impl Input {
 
     pub fn is_key_released(&self, key: KeyInput) -> bool {
         !self.is_key_pressed(key)
+    }
+
+    pub(crate) fn set_mouse_position(&mut self, pos: PhysicalPosition<f64>) {
+        self.mouse_position = Vec2::new(pos.x as f32, pos.y as f32);
+    }
+
+    pub(crate) fn set_mouse_wheel(&mut self, delta: f32) {
+        self.mouse_wheel_delta = delta;
+    }
+
+    pub(crate) fn handle_mouse_input(&mut self, event: ElementState, button: MouseButton) {
+        let mouse_button = match button {
+            MouseButton::Left => MouseInput::Left,
+            MouseButton::Right => MouseInput::Right,
+            MouseButton::Middle => MouseInput::Middle,
+            MouseButton::Back => MouseInput::Back,
+            MouseButton::Forward => MouseInput::Forward,
+            MouseButton::Other(code) => {
+                warn!("ignored unhandled mouse button {code}");
+                return;
+            }
+        };
+
+        if event.is_pressed() {
+            self.press_mouse(mouse_button);
+        } else {
+            self.release_mouse(mouse_button);
+        }
     }
 
     pub(crate) fn handle_keyboard_input(

@@ -465,7 +465,6 @@ impl Gpu {
             }
         }
 
-        // submit will accept anything that implements IntoIter
         self.queue.submit(std::iter::once(encoder.finish()));
         output.present();
     }

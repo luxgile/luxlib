@@ -6,7 +6,7 @@ struct Game {
 
 fn main() {
     luxlib::setup()
-        .title("My app")
+        .title("Luxlib Example - Keyboard Input")
         .window_size(UVec2::new(800, 600))
         .target_fps(60)
         .init(|_| {
