@@ -1,3 +1,5 @@
+use std::ops::Mul;
+
 use bytemuck::{Pod, Zeroable};
 
 use crate::bind::BindEntry;
@@ -10,6 +12,30 @@ pub struct Rgba8 {
     pub b: u8,
     pub a: u8,
 }
+impl Rgba8 {
+    pub fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
+        Self { r, g, b, a }
+    }
+
+    pub fn as_srgba(self) -> Srgba {
+        Srgba {
+            r: (self.r / 255) as f32,
+            g: (self.g / 255) as f32,
+            b: (self.b / 255) as f32,
+            a: (self.a / 255) as f32,
+        }
+    }
+}
+impl From<cosmic_text::Color> for Rgba8 {
+    fn from(value: cosmic_text::Color) -> Self {
+        Self {
+            r: value.r(),
+            g: value.g(),
+            b: value.b(),
+            a: value.a(),
+        }
+    }
+}
 
 #[repr(C)]
 #[derive(Clone, Copy, Default, Debug, Pod, Zeroable)]
@@ -18,6 +44,18 @@ pub struct Srgba {
     pub g: f32,
     pub b: f32,
     pub a: f32,
+}
+impl Mul for Srgba {
+    type Output = Self;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        Self {
+            r: self.r * rhs.r,
+            g: self.g * rhs.g,
+            b: self.b * rhs.b,
+            a: self.a * rhs.a,
+        }
+    }
 }
 impl Srgba {
     pub fn new(r: f32, g: f32, b: f32, a: f32) -> Self {

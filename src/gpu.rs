@@ -1,20 +1,22 @@
-use std::sync::Arc;
+use std::{any::Any, sync::Arc};
 
+use cosmic_text::{FontSystem, SwashCache};
 use glam::{Vec2, Vec3Swizzles};
 use log::{error, warn};
 use winit::window::Window;
 
 use crate::{
     Error, LuxError,
-    color::Srgba,
+    color::{Rgba8, Srgba},
     material::{MATERIAL2D, Material, StandardMaterial2d},
     model::{Mesh, MeshBuilder, QUAD_MESH},
     shapes::Rect,
+    text::Text,
     texture::{Texture, TextureBuilder, WHITE_TEXTURE},
     vertex::Vertex2,
 };
 
-pub trait DrawCommand {
+pub trait DrawCommand: Any {
     fn render(&self, gpu: &Gpu, ctx: &mut RenderContext);
 }
 
@@ -42,6 +44,8 @@ impl DrawCommand for Update2d {
 pub struct RenderContext<'a> {
     pub render_pass: wgpu::RenderPass<'a>,
     pub camera2d: Camera2d,
+    pub font_system: cosmic_text::FontSystem,
+    pub swash_cache: cosmic_text::SwashCache,
 }
 
 #[derive(Debug, Clone)]
@@ -115,6 +119,103 @@ impl DrawCommand for DrawRect {
         );
         ctx.render_pass
             .draw_indexed(0..mesh.get_indices().1, 0, 0..1);
+    }
+}
+
+pub struct DrawText {
+    pub position: Vec2,
+    pub euler_angle: f32,
+    pub scale: Vec2,
+    pub tint: Srgba,
+    pub text: String,
+    pub font_size: f32,
+}
+impl DrawText {
+    pub fn position(&mut self, position: Vec2) -> &mut Self {
+        self.position = position;
+        self
+    }
+    pub fn angle(&mut self, euler_angle: f32) -> &mut Self {
+        self.euler_angle = euler_angle;
+        self
+    }
+    pub fn scale(&mut self, scale: Vec2) -> &mut Self {
+        self.scale = scale;
+        self
+    }
+    pub fn text(&mut self, text: impl Into<String>) -> &mut Self {
+        self.text = text.into();
+        self
+    }
+    pub fn font_size(&mut self, font_size: f32) -> &mut Self {
+        self.font_size = font_size;
+        self
+    }
+    pub fn tint(&mut self, tint: Srgba) -> &mut Self {
+        self.tint = tint;
+        self
+    }
+}
+impl Default for DrawText {
+    fn default() -> Self {
+        Self {
+            position: Default::default(),
+            euler_angle: Default::default(),
+            scale: Vec2::ONE,
+            text: String::new(),
+            font_size: 16.0,
+            tint: Srgba::WHITE,
+        }
+    }
+}
+impl DrawCommand for DrawText {
+    fn render(&self, gpu: &Gpu, ctx: &mut RenderContext) {
+        let mesh = Mesh::clone_quad_mesh();
+        let mut material = StandardMaterial2d::clone_global();
+        let window_size = gpu.get_main_window().inner_size();
+
+        material.set_view_projection(
+            ctx.camera2d.position,
+            window_size.width as f32,
+            window_size.height as f32,
+        );
+
+        let mut text = Text::new(self.text.clone(), self.font_size);
+        text.rebuild(gpu, &mut ctx.font_system, &mut ctx.swash_cache);
+        // Buffer needs to be used as it's going to lay out the string for us.
+        asdasdasdasd
+        text.buffer.draw(
+            &mut ctx.font_system,
+            &mut ctx.swash_cache,
+            cosmic_text::Color::rgb(0, 0, 0),
+            |x, y, w, h, color| {
+                let rect = Rect::new(Vec2::new(w as f32, h as f32));
+                material.set_model(
+                    self.position + Vec2::new(x as f32, y as f32),
+                    self.euler_angle.to_radians(),
+                    rect.size * self.scale,
+                );
+
+                material.set_color(self.tint * Rgba8::from(color).as_srgba());
+                material.rebuild(gpu);
+
+                ctx.render_pass
+                    .set_pipeline(material.get_pipeline().get_handle());
+                ctx.render_pass.set_bind_group(
+                    0,
+                    Some(material.get_bind_group().get_handle()),
+                    &[],
+                );
+                ctx.render_pass
+                    .set_vertex_buffer(0, mesh.get_vertices().get_handle().slice(..));
+                ctx.render_pass.set_index_buffer(
+                    mesh.get_indices().0.get_handle().slice(..),
+                    wgpu::IndexFormat::Uint16,
+                );
+                ctx.render_pass
+                    .draw_indexed(0..mesh.get_indices().1, 0, 0..1);
+            },
+        );
     }
 }
 
@@ -231,47 +332,20 @@ impl RenderQueue {
         self.commands.push(Box::new(draw));
     }
 
-    pub fn texture(&mut self, closure: impl Fn(&mut DrawTexture)) {
-        let mut texture = DrawTexture::default();
-        closure(&mut texture);
-        self.commands.push(Box::new(texture));
+    pub fn texture(&mut self, texture: &Texture, closure: impl Fn(&mut DrawTexture)) {
+        let mut dt = DrawTexture::default();
+        dt.texture(texture);
+        closure(&mut dt);
+        self.commands.push(Box::new(dt));
+    }
+
+    pub fn text(&mut self, text: impl Into<String>, closure: impl Fn(&mut DrawText)) {
+        let mut dt = DrawText::default();
+        dt.text(text.into());
+        closure(&mut dt);
+        self.commands.push(Box::new(dt));
     }
 }
-
-// /// Used to hold meshes, shaders and other visual objects that are reused a lot.
-// #[derive(Debug)]
-// pub struct VisualConstants {
-//     quad_mesh: Mesh,
-//     default_2d_mat: StandardMaterial2d,
-// }
-// impl VisualConstants {
-//     const QUAD_VERT_BUFFER: [Vertex2; 4] = [
-//         Vertex2::from_xy(0.5, 0.5),
-//         Vertex2::from_xy(-0.5, 0.5),
-//         Vertex2::from_xy(-0.5, -0.5),
-//         Vertex2::from_xy(0.5, -0.5),
-//     ];
-//     const QUAD_IDX_BUFFER: [u16; 6] = [0, 1, 2, 0, 2, 3];
-//
-//     pub fn new(gpu: &Gpu) -> Self {
-//         Self {
-//             quad_mesh: MeshBuilder {
-//                 vertices: Self::QUAD_VERT_BUFFER.to_vec(),
-//                 indices: Self::QUAD_IDX_BUFFER.to_vec(),
-//             }
-//             .build(gpu),
-//             default_2d_mat: StandardMaterial2d::new(gpu),
-//         }
-//     }
-//
-//     pub fn get_quad_mesh(&self) -> &Mesh {
-//         &self.quad_mesh
-//     }
-//
-//     pub fn get_default_2d_material(&self) -> &StandardMaterial2d {
-//         &self.default_2d_mat
-//     }
-// }
 
 pub struct Gpu {
     main_window: Arc<Window>,
@@ -279,6 +353,8 @@ pub struct Gpu {
     device: wgpu::Device,
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
+    font_system: Option<cosmic_text::FontSystem>,
+    swash_cache: Option<cosmic_text::SwashCache>,
     is_surface_setup: bool,
     are_constants_setup: bool,
 }
@@ -365,6 +441,8 @@ impl Gpu {
             device,
             queue,
             main_window: window,
+            font_system: Some(FontSystem::new()),
+            swash_cache: Some(SwashCache::new()),
             is_surface_setup: false,
             are_constants_setup: false,
         };
@@ -430,7 +508,7 @@ impl Gpu {
         self.main_window.request_redraw();
     }
 
-    pub fn render_queue(&self, render_queue: &RenderQueue) {
+    pub fn render_queue(&mut self, render_queue: &RenderQueue) {
         self.main_window.request_redraw();
         if !self.is_surface_setup {
             return;
@@ -475,10 +553,14 @@ impl Gpu {
             let mut ctx = RenderContext {
                 render_pass,
                 camera2d: Camera2d::default(),
+                swash_cache: self.swash_cache.take().unwrap(),
+                font_system: self.font_system.take().unwrap(),
             };
             for cmd in render_queue.get_commands() {
                 cmd.render(self, &mut ctx);
             }
+            self.swash_cache = Some(ctx.swash_cache);
+            self.font_system = Some(ctx.font_system);
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
