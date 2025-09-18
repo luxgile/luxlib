@@ -244,7 +244,7 @@ impl Input {
         _is_synthetic: bool,
     ) {
         let input_key = match event.physical_key {
-            winit::keyboard::PhysicalKey::Unidentified(native_key_code) => None,
+            winit::keyboard::PhysicalKey::Unidentified(_native_key_code) => None,
             winit::keyboard::PhysicalKey::Code(key_code) => match key_code {
                 KeyCode::KeyA => Some(KeyInput::A),
                 KeyCode::KeyB => Some(KeyInput::B),

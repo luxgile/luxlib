@@ -1,6 +1,5 @@
 #![allow(dead_code)]
 
-use std::error::Error;
 
 use crate::app::AppBuilderStage1;
 

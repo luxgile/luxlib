@@ -1,11 +1,11 @@
-use luxlib::{prelude::*, texture::TextureBuilder};
+use luxlib::prelude::*;
 
 fn main() {
     luxlib::setup()
         .title("My app")
         .window_size(UVec2::new(800, 600))
         .target_fps(60)
-        .init(|frame| {
+        .init(|_| {
             // A FontSystem provides access to detected system fonts, create one per application
             // let mut font_system = FontSystem::new();
             //
@@ -83,8 +83,8 @@ fn main() {
             // Ok(texture)
             Ok(())
         })
-        .frame_loop(|frame, texture| {
-            let mut render = frame.render(Srgba::SILVER);
+        .frame_loop(|frame, _| {
+            let render = frame.render(Srgba::SILVER);
             // render.texture(texture, 400.0, 300.0);
             // render.text("Welcome to Luxlib! Here's your first window!", 400, 300, 18, Srgba::GRAY);
             Ok(render)

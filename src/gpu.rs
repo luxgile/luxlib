@@ -358,8 +358,7 @@ impl RenderQueue {
         self.commands.push(Box::new(command.clone()));
     }
 
-    pub fn update_camera_2d(&mut self) -> DrawBuilder<Update2d> {
-        
+    pub fn update_camera_2d(&mut self) -> DrawBuilder<'_, Update2d> {
         DrawBuilder::new(
             self,
             Update2d {
@@ -368,29 +367,27 @@ impl RenderQueue {
         )
     }
 
-    pub fn rect(&mut self, x: f32, y: f32, width: f32, height: f32) -> DrawBuilder<DrawRect> {
+    pub fn rect(&mut self, x: f32, y: f32, width: f32, height: f32) -> DrawBuilder<'_, DrawRect> {
         let mut draw = DrawBuilder::new(self, DrawRect::default());
         draw.rect(Rect::from_xy(width, height));
         draw.position(Vec2::new(x, y));
         draw
     }
 
-    pub fn texture(&mut self, texture: &Texture, x: f32, y: f32) -> DrawBuilder<DrawTexture> {
+    pub fn texture(&mut self, texture: &Texture, x: f32, y: f32) -> DrawBuilder<'_, DrawTexture> {
         let mut dt = DrawBuilder::new(self, DrawTexture::default());
         dt.texture(texture);
         dt.position(Vec2::new(x, y));
         dt
     }
 
-    pub fn text(&mut self, text: impl Into<String>, x: f32, y: f32) -> DrawBuilder<DrawText> {
+    pub fn text(&mut self, text: impl Into<String>, x: f32, y: f32) -> DrawBuilder<'_, DrawText> {
         let mut dt = DrawBuilder::new(self, DrawText::default());
         dt.text(text.into());
         dt.position(Vec2::new(x, y));
         dt
     }
 }
-
-// pub static GPU_INSTANCE: Mutex<Option<Gpu>> = Mutex::new(None);
 
 pub struct Gpu {
     main_window: Arc<Window>,
