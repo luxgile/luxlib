@@ -85,9 +85,7 @@ fn main() {
         })
         .frame_loop(|frame, texture| {
             let mut render = frame.render(Srgba::SILVER);
-            render.texture(texture, |t| {
-                t.position(Vec2::new(400.0, 300.0)).scale(Vec2::ONE);
-            });
+            render.texture(texture, 400.0, 300.0);
             // render.text("Welcome to Luxlib! Here's your first window!", 400, 300, 18, Srgba::GRAY);
             Ok(render)
         })

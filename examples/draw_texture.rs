@@ -19,9 +19,9 @@ fn main() {
         })
         .frame_loop(|frame, game| {
             let mut render = frame.render(Srgba::WHITE);
-            render.texture(&game.texture, |t| {
-                t.position(Vec2::new(400.0, 300.0)).scale(Vec2::ONE * 0.25);
-            });
+            render
+                .texture(&game.texture, 400.0, 300.0)
+                .uniform_scale(0.25);
             Ok(render)
         })
         .start();

@@ -30,9 +30,9 @@ fn main() {
             let position = frame.input().get_mouse_position();
 
             let mut render = frame.render(Srgba::SILVER);
-            render.rect(|r| {
-                r.position(position).color(color).scale(Vec2::ONE * game.cursor_size);
-            });
+            render
+                .rect(position.x, position.y, game.cursor_size, game.cursor_size)
+                .color(color);
             Ok(render)
         })
         .start();

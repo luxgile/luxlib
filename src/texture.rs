@@ -3,7 +3,7 @@ use std::sync::Mutex;
 use glam::{UVec2, UVec3};
 use once_cell::sync::OnceCell;
 
-use crate::{bind::BindEntry, color::Srgba, gpu::Gpu};
+use crate::{bind::BindEntry, color::Srgba, gpu::{Gpu}};
 
 #[derive(Clone)]
 pub enum TextureDimension {
@@ -55,6 +55,7 @@ impl TextureBuilder {
     }
 
     pub fn build(&self, gpu: &Gpu) -> Texture {
+        // let gpu = GPU_INSTANCE.lock().unwrap().unwrap();
         let texture_size = wgpu::Extent3d {
             width: self.size.x,
             height: self.size.y,

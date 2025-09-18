@@ -1,4 +1,4 @@
-use std::{any::Any, sync::Arc};
+use std::{any::Any, ops::{Deref, DerefMut}, sync::{Arc, Mutex}};
 
 use cosmic_text::{FontSystem, SwashCache};
 use glam::{Vec2, Vec3Swizzles};
@@ -29,9 +29,9 @@ pub struct Camera2d {
 pub struct Update2d {
     pub camera: Camera2d,
 }
-impl Update2d {
-    pub fn camera(&mut self, camera: Camera2d) -> &mut Self {
-        self.camera = camera;
+impl<'a> DrawBuilder<'a, Update2d> {
+    pub fn position(&mut self, position: Vec2) -> &mut Self {
+        self.camera.position = position;
         self
     }
 }
@@ -56,7 +56,7 @@ pub struct DrawRect {
     pub rect: Rect,
     pub color: Srgba,
 }
-impl DrawRect {
+impl<'a> DrawBuilder<'a, DrawRect> {
     pub fn position(&mut self, position: Vec2) -> &mut Self {
         self.position = position;
         self
@@ -122,6 +122,33 @@ impl DrawCommand for DrawRect {
     }
 }
 
+pub struct DrawBuilder<'a, T: DrawCommand> {
+    queue: &'a mut RenderQueue,
+    cmd: Option<T>,
+}
+impl<'a, T: DrawCommand> Deref for DrawBuilder<'a, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        self.cmd.as_ref().unwrap()
+    }
+}
+impl<'a, T: DrawCommand> DerefMut for DrawBuilder<'a, T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.cmd.as_mut().unwrap()
+    }
+}
+impl <'a, T:DrawCommand> Drop for DrawBuilder<'a, T> {
+    fn drop(&mut self) {
+        self.queue.commands.push(Box::new(self.cmd.take().unwrap()));
+    }
+}
+impl<'a, T: DrawCommand> DrawBuilder<'a, T> {
+    pub fn new(queue: &'a mut RenderQueue, cmd: T) -> Self {
+        Self { queue, cmd: Some(cmd) }
+    }
+} 
+
 pub struct DrawText {
     pub position: Vec2,
     pub euler_angle: f32,
@@ -130,7 +157,7 @@ pub struct DrawText {
     pub text: String,
     pub font_size: f32,
 }
-impl DrawText {
+impl<'a> DrawBuilder<'a, DrawText> {
     pub fn position(&mut self, position: Vec2) -> &mut Self {
         self.position = position;
         self
@@ -183,7 +210,7 @@ impl DrawCommand for DrawText {
         let mut text = Text::new(self.text.clone(), self.font_size);
         text.rebuild(gpu, &mut ctx.font_system, &mut ctx.swash_cache);
         // Buffer needs to be used as it's going to lay out the string for us.
-        asdasdasdasd
+        // asdasdasdasd
         text.buffer.draw(
             &mut ctx.font_system,
             &mut ctx.swash_cache,
@@ -226,13 +253,17 @@ pub struct DrawTexture {
     pub texture: Texture,
     pub tint: Srgba,
 }
-impl DrawTexture {
+impl<'a> DrawBuilder<'a ,DrawTexture> {
     pub fn position(&mut self, position: Vec2) -> &mut Self {
         self.position = position;
         self
     }
     pub fn angle(&mut self, euler_angle: f32) -> &mut Self {
         self.euler_angle = euler_angle;
+        self
+    }
+    pub fn uniform_scale(&mut self, scale: f32) -> &mut Self {
+        self.scale = Vec2::ONE * scale;
         self
     }
     pub fn scale(&mut self, scale: Vec2) -> &mut Self {
@@ -320,32 +351,34 @@ impl RenderQueue {
         self.commands.push(Box::new(command.clone()));
     }
 
-    pub fn update_2d(&mut self, closure: impl Fn(&mut Update2d)) {
-        let mut update = Update2d::default();
-        closure(&mut update);
-        self.commands.push(Box::new(update));
+    pub fn update_camera_2d(&mut self) -> DrawBuilder<Update2d> {
+        let update = DrawBuilder::new( self, Update2d { camera: self.camera.clone() });
+        update
     }
 
-    pub fn rect(&mut self, closure: impl Fn(&mut DrawRect)) {
-        let mut draw = DrawRect::default();
-        closure(&mut draw);
-        self.commands.push(Box::new(draw));
+    pub fn rect(&mut self, x: f32, y: f32, width: f32, height: f32) -> DrawBuilder<DrawRect> {
+        let mut draw = DrawBuilder::new(self, DrawRect::default());
+        draw.rect(Rect::from_xy(width, height));
+        draw.position(Vec2::new(x, y));
+        draw
     }
 
-    pub fn texture(&mut self, texture: &Texture, closure: impl Fn(&mut DrawTexture)) {
-        let mut dt = DrawTexture::default();
+    pub fn texture(&mut self, texture: &Texture, x: f32, y:f32) -> DrawBuilder<DrawTexture> {
+        let mut dt = DrawBuilder::new(self, DrawTexture::default());
         dt.texture(texture);
-        closure(&mut dt);
-        self.commands.push(Box::new(dt));
+        dt.position(Vec2::new(x, y));
+        dt
     }
 
-    pub fn text(&mut self, text: impl Into<String>, closure: impl Fn(&mut DrawText)) {
-        let mut dt = DrawText::default();
+    pub fn text(&mut self, text: impl Into<String>, x: f32, y: f32) -> DrawBuilder<DrawText> {
+        let mut dt = DrawBuilder::new(self, DrawText::default());
         dt.text(text.into());
-        closure(&mut dt);
-        self.commands.push(Box::new(dt));
+        dt.position(Vec2::new(x, y));
+        dt
     }
 }
+
+// pub static GPU_INSTANCE: Mutex<Option<Gpu>> = Mutex::new(None);
 
 pub struct Gpu {
     main_window: Arc<Window>,
@@ -556,7 +589,7 @@ impl Gpu {
                 swash_cache: self.swash_cache.take().unwrap(),
                 font_system: self.font_system.take().unwrap(),
             };
-            for cmd in render_queue.get_commands() {
+            for cmd in render_queue.get_commands().iter().rev() {
                 cmd.render(self, &mut ctx);
             }
             self.swash_cache = Some(ctx.swash_cache);
