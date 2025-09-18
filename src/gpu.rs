@@ -593,10 +593,6 @@ impl Gpu {
             return;
         }
 
-        for cmd in render_queue.get_commands().iter().rev() {
-            cmd.prepare(self);
-        }
-
         let output = self
             .surface
             .get_current_texture()
@@ -638,6 +634,7 @@ impl Gpu {
                 camera2d: Camera2d::default(),
             };
             for cmd in render_queue.get_commands().iter().rev() {
+                cmd.prepare(self);
                 cmd.render(self, &mut ctx);
             }
         }
