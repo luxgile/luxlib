@@ -19,8 +19,13 @@ fn main() {
         })
         .frame_loop(|frame, game| {
             let mut render = frame.render(Srgba::WHITE);
+            let screen_size = frame.gpu().get_window_size();
             render
-                .texture(&game.texture, 400.0, 300.0)
+                .texture(
+                    &game.texture,
+                    screen_size.x as f32 / 2.0,
+                    screen_size.y as f32 / 2.0,
+                )
                 .uniform_scale(0.25);
             Ok(render)
         })

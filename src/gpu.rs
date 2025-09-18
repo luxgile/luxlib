@@ -4,7 +4,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use glam::{Vec2, Vec3Swizzles};
+use glam::{UVec2, Vec2, Vec3Swizzles};
 use glyphon::{Attrs, Color, Resolution, TextArea, TextBounds};
 use log::warn;
 use winit::window::Window;
@@ -202,22 +202,23 @@ impl Default for DrawText {
 }
 impl DrawCommand for DrawText {
     fn prepare(&self, gpu: &mut Gpu) {
+        let screen_size = gpu.main_window.inner_size();
         gpu.viewport.update(
             &gpu.queue,
             Resolution {
-                width: gpu.main_window.inner_size().width,
-                height: gpu.main_window.inner_size().height,
+                width: screen_size.width,
+                height: screen_size.height,
             },
         );
 
-        // gpu.text_buffer.set_text(
-        //     &mut gpu.font_system,
-        //     &self.text,
-        //     &Attrs::new().family(glyphon::Family::Monospace),
-        //     glyphon::Shaping::Advanced,
-        // );
-        // gpu.text_buffer
-        //     .shape_until_scroll(&mut gpu.font_system, false);
+        gpu.text_buffer.set_text(
+            &mut gpu.font_system,
+            &self.text,
+            &Attrs::new().family(glyphon::Family::Monospace),
+            glyphon::Shaping::Advanced,
+        );
+        gpu.text_buffer
+            .shape_until_scroll(&mut gpu.font_system, false);
 
         gpu.text_renderer
             .prepare(
@@ -228,14 +229,14 @@ impl DrawCommand for DrawText {
                 &gpu.viewport,
                 [TextArea {
                     buffer: &gpu.text_buffer,
-                    left: 10.0,
-                    top: 10.0,
+                    left: self.position.x,
+                    top: screen_size.height as f32 - self.position.y,
                     scale: 1.0,
                     bounds: TextBounds {
                         left: 0,
                         top: 0,
-                        right: 600,
-                        bottom: 160,
+                        right: screen_size.width as i32,
+                        bottom: screen_size.height as i32,
                     },
                     default_color: self.tint.as_rgba8().into(),
                     custom_glyphs: &[],
@@ -551,6 +552,11 @@ impl Gpu {
 
     pub fn get_main_window(&self) -> &Window {
         &self.main_window
+    }
+
+    pub fn get_window_size(&self) -> UVec2 {
+        let size = self.get_main_window().inner_size();
+        UVec2::new(size.width, size.height)
     }
 
     pub fn get_surface(&self) -> &wgpu::Surface<'static> {
