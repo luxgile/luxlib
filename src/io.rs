@@ -1,7 +1,7 @@
 use glam::UVec3;
 use image::GenericImageView;
 
-use crate::{Error, LuxError, gpu::Gpu, prelude::Texture, texture::TextureBuilder};
+use crate::{LuxError, gpu::Gpu, prelude::Texture, texture::TextureBuilder};
 
 pub struct Image {
     image: image::DynamicImage,

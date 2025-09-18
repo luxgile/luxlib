@@ -1,11 +1,11 @@
 use std::{
     any::Any,
     ops::{Deref, DerefMut},
-    sync::{Arc, Mutex},
+    sync::Arc,
 };
 
 use glam::{UVec2, Vec2, Vec3Swizzles};
-use glyphon::{Attrs, Color, Resolution, TextArea, TextBounds};
+use glyphon::{Attrs, Resolution, TextArea, TextBounds};
 use log::warn;
 use winit::window::Window;
 
@@ -359,13 +359,13 @@ impl RenderQueue {
     }
 
     pub fn update_camera_2d(&mut self) -> DrawBuilder<Update2d> {
-        let update = DrawBuilder::new(
+        
+        DrawBuilder::new(
             self,
             Update2d {
                 camera: self.camera.clone(),
             },
-        );
-        update
+        )
     }
 
     pub fn rect(&mut self, x: f32, y: f32, width: f32, height: f32) -> DrawBuilder<DrawRect> {

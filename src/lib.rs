@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 
-use std::{any::Any, error::Error, fmt::Display};
+use std::error::Error;
 
-use crate::app::{AppBuilderStage1, AppBuilderStage2, InitFn};
+use crate::app::AppBuilderStage1;
 
 pub mod app;
 pub mod bind;
@@ -20,7 +20,6 @@ pub mod shapes;
 pub mod texture;
 pub mod uniform;
 pub mod vertex;
-pub mod text;
 
 #[derive(thiserror::Error, Debug)]
 pub enum LuxError {

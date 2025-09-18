@@ -1,9 +1,8 @@
 use std::{
     sync::Arc,
-    time::{self, Duration, Instant},
+    time::{Duration, Instant},
 };
 
-use bytemuck::Pod;
 use glam::UVec2;
 use winit::{
     application::ApplicationHandler,

@@ -1,7 +1,6 @@
 use std::fmt::Debug;
 
-use bytemuck::{Pod, Zeroable};
-use glam::{Mat3, Mat4, Vec2, Vec3};
+use glam::{Mat4, Vec2};
 use once_cell::sync::OnceCell;
 
 use crate::{

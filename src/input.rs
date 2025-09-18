@@ -1,10 +1,9 @@
-use std::ops::Index;
 
 use glam::Vec2;
-use log::{error, warn};
+use log::warn;
 use winit::{
     dpi::PhysicalPosition,
-    event::{self, DeviceId, ElementState, KeyEvent, MouseButton, MouseScrollDelta},
+    event::{DeviceId, ElementState, KeyEvent, MouseButton, MouseScrollDelta},
     keyboard::KeyCode,
 };
 

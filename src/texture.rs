@@ -1,6 +1,5 @@
-use std::sync::Mutex;
 
-use glam::{UVec2, UVec3};
+use glam::UVec3;
 use once_cell::sync::OnceCell;
 
 use crate::{bind::BindEntry, color::Srgba, gpu::{Gpu}};

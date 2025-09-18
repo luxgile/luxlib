@@ -1,10 +1,8 @@
-use glam::{Mat3, Vec2};
-use wgpu::Buffer;
+use glam::Vec2;
 
 use crate::{
     color::Srgba,
     gpu::{DrawCommand, Gpu, RenderContext},
-    material::Material,
 };
 
 #[derive(Default, Debug, Clone)]

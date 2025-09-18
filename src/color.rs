@@ -2,7 +2,6 @@ use std::ops::Mul;
 
 use bytemuck::{Pod, Zeroable};
 
-use crate::bind::BindEntry;
 
 #[repr(C)]
 #[derive(Clone, Copy, Default, Debug, Pod, Zeroable)]

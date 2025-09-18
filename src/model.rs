@@ -1,16 +1,13 @@
 use std::fmt::Debug;
 
 use bytemuck::Pod;
-use glam::UVec3;
 use once_cell::sync::OnceCell;
 
 use crate::{
     buffer::{Buffer, BufferBuilder},
-    color::Srgba,
     gpu::{DrawCommand, Gpu, RenderContext},
-    material::{Material, StandardMaterial2d},
-    texture::{SamplerBuilder, TextureBuilder},
-    vertex::{Vertex, Vertex2},
+    material::Material,
+    vertex::Vertex,
 };
 
 pub struct MeshBuilder<V: Vertex> {

@@ -32,17 +32,10 @@ struct BindEntryData {
     visibility: ShaderStage,
 }
 
+#[derive(Default)]
 pub struct BindGroupBuilder {
     label: Option<String>,
     entries: Vec<BindEntryData>,
-}
-impl Default for BindGroupBuilder {
-    fn default() -> Self {
-        Self {
-            label: None,
-            entries: Vec::new(),
-        }
-    }
 }
 impl BindGroupBuilder {
     pub fn entry<T: BindEntry + Clone + 'static>(
