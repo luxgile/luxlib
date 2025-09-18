@@ -26,14 +26,9 @@ impl Rgba8 {
         }
     }
 }
-impl From<cosmic_text::Color> for Rgba8 {
-    fn from(value: cosmic_text::Color) -> Self {
-        Self {
-            r: value.r(),
-            g: value.g(),
-            b: value.b(),
-            a: value.a(),
-        }
+impl From<Rgba8> for glyphon::Color {
+    fn from(val: Rgba8) -> Self {
+        glyphon::Color::rgba(val.r, val.g, val.b, val.a)
     }
 }
 

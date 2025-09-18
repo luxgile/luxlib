@@ -1,22 +1,26 @@
-use std::{any::Any, ops::{Deref, DerefMut}, sync::{Arc, Mutex}};
+use std::{
+    any::Any,
+    ops::{Deref, DerefMut},
+    sync::{Arc, Mutex},
+};
 
-use cosmic_text::{FontSystem, SwashCache};
 use glam::{Vec2, Vec3Swizzles};
-use log::{error, warn};
+use glyphon::{Attrs, Color, Resolution, TextArea, TextBounds};
+use log::warn;
 use winit::window::Window;
 
 use crate::{
-    Error, LuxError,
-    color::{Rgba8, Srgba},
+    LuxError,
+    color::Srgba,
     material::{MATERIAL2D, Material, StandardMaterial2d},
     model::{Mesh, MeshBuilder, QUAD_MESH},
     shapes::Rect,
-    text::Text,
     texture::{Texture, TextureBuilder, WHITE_TEXTURE},
     vertex::Vertex2,
 };
 
 pub trait DrawCommand: Any {
+    fn prepare(&self, _gpu: &mut Gpu) {}
     fn render(&self, gpu: &Gpu, ctx: &mut RenderContext);
 }
 
@@ -44,8 +48,6 @@ impl DrawCommand for Update2d {
 pub struct RenderContext<'a> {
     pub render_pass: wgpu::RenderPass<'a>,
     pub camera2d: Camera2d,
-    pub font_system: cosmic_text::FontSystem,
-    pub swash_cache: cosmic_text::SwashCache,
 }
 
 #[derive(Debug, Clone)]
@@ -138,16 +140,19 @@ impl<'a, T: DrawCommand> DerefMut for DrawBuilder<'a, T> {
         self.cmd.as_mut().unwrap()
     }
 }
-impl <'a, T:DrawCommand> Drop for DrawBuilder<'a, T> {
+impl<'a, T: DrawCommand> Drop for DrawBuilder<'a, T> {
     fn drop(&mut self) {
         self.queue.commands.push(Box::new(self.cmd.take().unwrap()));
     }
 }
 impl<'a, T: DrawCommand> DrawBuilder<'a, T> {
     pub fn new(queue: &'a mut RenderQueue, cmd: T) -> Self {
-        Self { queue, cmd: Some(cmd) }
+        Self {
+            queue,
+            cmd: Some(cmd),
+        }
     }
-} 
+}
 
 pub struct DrawText {
     pub position: Vec2,
@@ -191,58 +196,59 @@ impl Default for DrawText {
             scale: Vec2::ONE,
             text: String::new(),
             font_size: 16.0,
-            tint: Srgba::WHITE,
+            tint: Srgba::BLACK,
         }
     }
 }
 impl DrawCommand for DrawText {
-    fn render(&self, gpu: &Gpu, ctx: &mut RenderContext) {
-        let mesh = Mesh::clone_quad_mesh();
-        let mut material = StandardMaterial2d::clone_global();
-        let window_size = gpu.get_main_window().inner_size();
-
-        material.set_view_projection(
-            ctx.camera2d.position,
-            window_size.width as f32,
-            window_size.height as f32,
-        );
-
-        let mut text = Text::new(self.text.clone(), self.font_size);
-        text.rebuild(gpu, &mut ctx.font_system, &mut ctx.swash_cache);
-        // Buffer needs to be used as it's going to lay out the string for us.
-        // asdasdasdasd
-        text.buffer.draw(
-            &mut ctx.font_system,
-            &mut ctx.swash_cache,
-            cosmic_text::Color::rgb(0, 0, 0),
-            |x, y, w, h, color| {
-                let rect = Rect::new(Vec2::new(w as f32, h as f32));
-                material.set_model(
-                    self.position + Vec2::new(x as f32, y as f32),
-                    self.euler_angle.to_radians(),
-                    rect.size * self.scale,
-                );
-
-                material.set_color(self.tint * Rgba8::from(color).as_srgba());
-                material.rebuild(gpu);
-
-                ctx.render_pass
-                    .set_pipeline(material.get_pipeline().get_handle());
-                ctx.render_pass.set_bind_group(
-                    0,
-                    Some(material.get_bind_group().get_handle()),
-                    &[],
-                );
-                ctx.render_pass
-                    .set_vertex_buffer(0, mesh.get_vertices().get_handle().slice(..));
-                ctx.render_pass.set_index_buffer(
-                    mesh.get_indices().0.get_handle().slice(..),
-                    wgpu::IndexFormat::Uint16,
-                );
-                ctx.render_pass
-                    .draw_indexed(0..mesh.get_indices().1, 0, 0..1);
+    fn prepare(&self, gpu: &mut Gpu) {
+        gpu.viewport.update(
+            &gpu.queue,
+            Resolution {
+                width: gpu.main_window.inner_size().width,
+                height: gpu.main_window.inner_size().height,
             },
         );
+
+        // gpu.text_buffer.set_text(
+        //     &mut gpu.font_system,
+        //     &self.text,
+        //     &Attrs::new().family(glyphon::Family::Monospace),
+        //     glyphon::Shaping::Advanced,
+        // );
+        // gpu.text_buffer
+        //     .shape_until_scroll(&mut gpu.font_system, false);
+
+        gpu.text_renderer
+            .prepare(
+                &gpu.device,
+                &gpu.queue,
+                &mut gpu.font_system,
+                &mut gpu.atlas,
+                &gpu.viewport,
+                [TextArea {
+                    buffer: &gpu.text_buffer,
+                    left: 10.0,
+                    top: 10.0,
+                    scale: 1.0,
+                    bounds: TextBounds {
+                        left: 0,
+                        top: 0,
+                        right: 600,
+                        bottom: 160,
+                    },
+                    default_color: self.tint.as_rgba8().into(),
+                    custom_glyphs: &[],
+                }],
+                &mut gpu.swash_cache,
+            )
+            .expect("issue preparing text renderer");
+    }
+
+    fn render(&self, gpu: &Gpu, ctx: &mut RenderContext) {
+        gpu.text_renderer
+            .render(&gpu.atlas, &gpu.viewport, &mut ctx.render_pass)
+            .unwrap();
     }
 }
 
@@ -253,7 +259,7 @@ pub struct DrawTexture {
     pub texture: Texture,
     pub tint: Srgba,
 }
-impl<'a> DrawBuilder<'a ,DrawTexture> {
+impl<'a> DrawBuilder<'a, DrawTexture> {
     pub fn position(&mut self, position: Vec2) -> &mut Self {
         self.position = position;
         self
@@ -352,7 +358,12 @@ impl RenderQueue {
     }
 
     pub fn update_camera_2d(&mut self) -> DrawBuilder<Update2d> {
-        let update = DrawBuilder::new( self, Update2d { camera: self.camera.clone() });
+        let update = DrawBuilder::new(
+            self,
+            Update2d {
+                camera: self.camera.clone(),
+            },
+        );
         update
     }
 
@@ -363,7 +374,7 @@ impl RenderQueue {
         draw
     }
 
-    pub fn texture(&mut self, texture: &Texture, x: f32, y:f32) -> DrawBuilder<DrawTexture> {
+    pub fn texture(&mut self, texture: &Texture, x: f32, y: f32) -> DrawBuilder<DrawTexture> {
         let mut dt = DrawBuilder::new(self, DrawTexture::default());
         dt.texture(texture);
         dt.position(Vec2::new(x, y));
@@ -386,8 +397,12 @@ pub struct Gpu {
     device: wgpu::Device,
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
-    font_system: Option<cosmic_text::FontSystem>,
-    swash_cache: Option<cosmic_text::SwashCache>,
+    font_system: glyphon::FontSystem,
+    swash_cache: glyphon::SwashCache,
+    viewport: glyphon::Viewport,
+    atlas: glyphon::TextAtlas,
+    text_renderer: glyphon::TextRenderer,
+    text_buffer: glyphon::Buffer,
     is_surface_setup: bool,
     are_constants_setup: bool,
 }
@@ -468,14 +483,42 @@ impl Gpu {
             desired_maximum_frame_latency: 2,
         };
 
+        let mut font_system = glyphon::FontSystem::new();
+        let swash_cache = glyphon::SwashCache::new();
+        let cache = glyphon::Cache::new(&device);
+        let viewport = glyphon::Viewport::new(&device, &cache);
+        let mut atlas = glyphon::TextAtlas::new(&device, &queue, &cache, surface_format);
+        let text_renderer = glyphon::TextRenderer::new(
+            &mut atlas,
+            &device,
+            wgpu::MultisampleState::default(),
+            None,
+        );
+        let mut text_buffer =
+            glyphon::Buffer::new(&mut font_system, glyphon::Metrics::new(30.0, 42.0));
+
+        let physical_size = window.inner_size();
+        let scale_factor = window.scale_factor();
+        text_buffer.set_size(
+            &mut font_system,
+            Some((physical_size.width as f64 * scale_factor) as f32),
+            Some((physical_size.height as f64 * scale_factor) as f32),
+        );
+        text_buffer.set_text(&mut font_system, "Hello world! 👋\nThis is rendered with 🦅 glyphon 🦁\nThe text below should be partially clipped.\na b c d e f g h i j k l m n o p q r s t u v w x y z", &Attrs::new().family(glyphon::Family::SansSerif), glyphon::Shaping::Advanced);
+        text_buffer.shape_until_scroll(&mut font_system, false);
+
         let gpu = Self {
             config,
             surface,
             device,
             queue,
             main_window: window,
-            font_system: Some(FontSystem::new()),
-            swash_cache: Some(SwashCache::new()),
+            font_system,
+            swash_cache,
+            viewport,
+            atlas,
+            text_renderer,
+            text_buffer,
             is_surface_setup: false,
             are_constants_setup: false,
         };
@@ -547,6 +590,10 @@ impl Gpu {
             return;
         }
 
+        for cmd in render_queue.get_commands().iter().rev() {
+            cmd.prepare(self);
+        }
+
         let output = self
             .surface
             .get_current_texture()
@@ -586,17 +633,14 @@ impl Gpu {
             let mut ctx = RenderContext {
                 render_pass,
                 camera2d: Camera2d::default(),
-                swash_cache: self.swash_cache.take().unwrap(),
-                font_system: self.font_system.take().unwrap(),
             };
             for cmd in render_queue.get_commands().iter().rev() {
                 cmd.render(self, &mut ctx);
             }
-            self.swash_cache = Some(ctx.swash_cache);
-            self.font_system = Some(ctx.font_system);
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
         output.present();
+        self.atlas.trim();
     }
 }
