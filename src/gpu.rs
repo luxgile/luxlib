@@ -211,6 +211,12 @@ impl DrawCommand for DrawText {
             },
         );
 
+        //TODO: This makes text invisible
+        // gpu.text_buffer.set_size(
+        //     &mut gpu.font_system,
+        //     Some(self.font_size),
+        //     Some(self.font_size * 1.5),
+        // );
         gpu.text_buffer.set_text(
             &mut gpu.font_system,
             &self.text,

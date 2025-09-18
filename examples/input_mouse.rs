@@ -9,7 +9,7 @@ fn main() {
         .title("Luxlib Example - Mouse Input")
         .window_size(UVec2::new(800, 600))
         .target_fps(60)
-        .init(|_| Ok(Game { cursor_size: 1.0 }))
+        .init(|_| Ok(Game { cursor_size: 50.0 }))
         .frame_loop(|frame, game| {
             let mut color = Srgba::DARK_GRAY;
             if frame.input().is_mouse_pressed(MouseInput::Left) {
@@ -24,12 +24,20 @@ fn main() {
                 color = Srgba::ORANGE;
             }
 
-            game.cursor_size += frame.input().get_wheel_delta() * 0.5;
-            game.cursor_size = game.cursor_size.clamp(0.5, 25.0);
+            game.cursor_size += frame.input().get_wheel_delta() * 10.0;
+            game.cursor_size = game.cursor_size.clamp(10.0, 150.0);
 
             let position = frame.input().get_mouse_position();
 
             let mut render = frame.render(Srgba::SILVER);
+            render
+                .text("scroll: change cursor size", 10.0, 50.0)
+                .font_size(12.0)
+                .tint(Srgba::DARK_GRAY);
+            render
+                .text("buttons: change cursor color", 10.0, 80.0)
+                .font_size(12.0)
+                .tint(Srgba::DARK_GRAY);
             render
                 .rect(position.x, position.y, game.cursor_size, game.cursor_size)
                 .color(color);
