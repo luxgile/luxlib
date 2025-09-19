@@ -7,7 +7,7 @@ use crate::{
     buffer::{Buffer, BufferBuilder},
     gpu::{DrawCommand, Gpu, RenderContext},
     material::Material,
-    vertex::Vertex,
+    vertex::{Vertex, Vertex2},
 };
 
 pub struct MeshBuilder<V: Vertex> {
@@ -20,6 +20,41 @@ impl<V: Vertex> Default for MeshBuilder<V> {
             vertices: Default::default(),
             indices: Default::default(),
         }
+    }
+}
+impl MeshBuilder<Vertex2> {
+    pub fn build_circle(resolution: u32, gpu: &Gpu) -> Mesh {
+        let mut temp_vertices: Vec<Vertex2> = Vec::new();
+        let mut temp_indices: Vec<u16> = Vec::new();
+        let resolution = resolution.max(3);
+
+        // Center
+        temp_vertices.push(Vertex2::from_xy(0.0, 0.0));
+
+        // Perimeter
+        for i in 0..resolution {
+            let angle = i as f32 * 2.0 * std::f32::consts::PI / resolution as f32;
+            let x = angle.cos();
+            let y = angle.sin();
+            temp_vertices.push(Vertex2::from_xy(x, y));
+        }
+
+        // Indices
+        for i in 0..resolution {
+            let center_idx = 0;
+            let p1_idx = i + 1; // Current perimeter vertex
+            let p2_idx = (i + 1) % resolution + 1; // Next perimeter vertex (wraps around)
+
+            temp_indices.push(center_idx as u16);
+            temp_indices.push(p1_idx as u16);
+            temp_indices.push(p2_idx as u16);
+        }
+
+        MeshBuilder {
+            vertices: temp_vertices,
+            indices: temp_indices,
+        }
+        .build(gpu)
     }
 }
 impl<V: Vertex + Pod> MeshBuilder<V> {
@@ -38,6 +73,7 @@ impl<V: Vertex + Pod> MeshBuilder<V> {
     }
 }
 
+pub(crate) static CIRCLE_MESH_32: OnceCell<Mesh> = OnceCell::new();
 pub(crate) static QUAD_MESH: OnceCell<Mesh> = OnceCell::new();
 pub(crate) static QUAD_LINE_MESH: OnceCell<Mesh> = OnceCell::new();
 
@@ -57,11 +93,24 @@ impl Mesh {
     }
 
     pub fn clone_quad_mesh() -> Mesh {
-        QUAD_MESH.get().expect("quad mesh has not been set yet").clone()
+        QUAD_MESH
+            .get()
+            .expect("quad mesh has not been set yet")
+            .clone()
     }
 
     pub fn clone_quad_line_mesh() -> Mesh {
-        QUAD_LINE_MESH.get().expect("quad line mesh has not been set yet").clone()
+        QUAD_LINE_MESH
+            .get()
+            .expect("quad line mesh has not been set yet")
+            .clone()
+    }
+
+    pub fn clone_circle_mesh() -> Mesh {
+        CIRCLE_MESH_32
+            .get()
+            .expect("circle mesh has not been set yet")
+            .clone()
     }
 }
 
@@ -101,13 +150,17 @@ impl Debug for Model {
 }
 impl DrawCommand for Model {
     fn render(&self, _gpu: &mut Gpu, ctx: &mut RenderContext) {
-        ctx.render_pass.set_pipeline(self.material.get_pipeline().get_handle());
-        ctx.render_pass.set_vertex_buffer(0, self.mesh.get_vertices().get_handle().slice(..));
-        ctx.render_pass.set_bind_group(0, Some(self.material.get_bind_group().get_handle()), &[]);
+        ctx.render_pass
+            .set_pipeline(self.material.get_pipeline().get_handle());
+        ctx.render_pass
+            .set_vertex_buffer(0, self.mesh.get_vertices().get_handle().slice(..));
+        ctx.render_pass
+            .set_bind_group(0, Some(self.material.get_bind_group().get_handle()), &[]);
         ctx.render_pass.set_index_buffer(
             self.mesh.get_indices().0.get_handle().slice(..),
             wgpu::IndexFormat::Uint16,
         );
-        ctx.render_pass.draw_indexed(0..self.mesh.get_indices().1, 0, 0..1);
+        ctx.render_pass
+            .draw_indexed(0..self.mesh.get_indices().1, 0, 0..1);
     }
 }

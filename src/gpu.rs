@@ -8,10 +8,17 @@ use glam::{UVec2, Vec2, Vec3Swizzles};
 use glyphon::{Attrs, Resolution, TextArea, TextBounds};
 use log::warn;
 use luxlib_derives::DrawBuilder;
+use wgpu::naga::WithSpan;
 use winit::window::Window;
 
 use crate::{
-    color::Srgba, material::{Material, StandardMaterial2d, MATERIAL2D}, model::{Mesh, MeshBuilder, QUAD_LINE_MESH, QUAD_MESH}, shapes::Rect, texture::{Texture, TextureBuilder, WHITE_TEXTURE}, vertex::Vertex2, LuxError
+    LuxError,
+    color::Srgba,
+    material::{MATERIAL2D, Material, StandardMaterial2d},
+    model::{CIRCLE_MESH_32, Mesh, MeshBuilder, QUAD_LINE_MESH, QUAD_MESH},
+    shapes::Rect,
+    texture::{Texture, TextureBuilder, WHITE_TEXTURE},
+    vertex::Vertex2,
 };
 
 pub trait DrawCommand: Any {
@@ -36,6 +43,61 @@ impl DrawCommand for Update2d {
 pub struct RenderContext<'a> {
     pub render_pass: wgpu::RenderPass<'a>,
     pub camera2d: Camera2d,
+}
+
+#[derive(Debug, Clone, DrawBuilder)]
+pub struct DrawCircle {
+    pub position: Vec2,
+    pub radius: f32,
+    pub color: Srgba,
+    pub line_mode: bool,
+}
+impl Default for DrawCircle {
+    fn default() -> Self {
+        Self {
+            position: Default::default(),
+            radius: 10.0,
+            color: Srgba::BLACK,
+            line_mode: false,
+        }
+    }
+}
+impl DrawCommand for DrawCircle {
+    fn render(&self, gpu: &mut Gpu, ctx: &mut RenderContext) {
+        let window_size = gpu.get_main_window().inner_size();
+        let mesh = if self.line_mode {
+            Mesh::clone_circle_mesh()
+        } else {
+            Mesh::clone_circle_mesh()
+        };
+        let mut material = StandardMaterial2d::clone_global();
+        material.set_line_mode(self.line_mode);
+        material.set_view_projection(
+            ctx.camera2d.position,
+            window_size.width as f32,
+            window_size.height as f32,
+        );
+        material.set_color(self.color);
+        material.set_model(
+            self.position,
+            0.0,
+            Vec2::ONE * self.radius,
+        );
+        material.rebuild(gpu);
+
+        ctx.render_pass
+            .set_pipeline(material.get_pipeline().get_handle());
+        ctx.render_pass
+            .set_bind_group(0, Some(material.get_bind_group().get_handle()), &[]);
+        ctx.render_pass
+            .set_vertex_buffer(0, mesh.get_vertices().get_handle().slice(..));
+        ctx.render_pass.set_index_buffer(
+            mesh.get_indices().0.get_handle().slice(..),
+            wgpu::IndexFormat::Uint16,
+        );
+        ctx.render_pass
+            .draw_indexed(0..mesh.get_indices().1, 0, 0..1);
+    }
 }
 
 #[derive(Debug, Clone, DrawBuilder)]
@@ -215,10 +277,6 @@ impl DrawCommand for DrawText {
             .set_vertex_buffer(0, text_buffer.vertex_buffer.slice(..));
         ctx.render_pass
             .draw(0..4, 0..gpu.text_renderer.glyph_vertices.len() as u32);
-
-        // gpu.text_renderer
-        //     .render(&gpu.atlas, &gpu.viewport, &mut ctx.render_pass)
-        //     .unwrap();
     }
 }
 
@@ -317,13 +375,36 @@ impl RenderQueue {
         )
     }
 
+    pub fn circle(&mut self, x: f32, y: f32, radius: f32) -> DrawBuilder<'_, DrawCircle> {
+        let mut circle = DrawBuilder::new(self, DrawCircle::default());
+        circle.position(Vec2::new(x, y));
+        circle.radius(radius);
+        circle.line_mode(false);
+        circle
+    }
+
+    pub fn circle_line(&mut self, x: f32, y: f32, radius: f32) -> DrawBuilder<'_, DrawCircle> {
+        let mut circle = DrawBuilder::new(self, DrawCircle::default());
+        circle.position(Vec2::new(x, y));
+        circle.radius(radius);
+        circle.line_mode(true);
+        circle
+    }
+
     pub fn quad(&mut self, x: f32, y: f32, width: f32, height: f32) -> DrawBuilder<'_, DrawRect> {
         let mut draw = DrawBuilder::new(self, DrawRect::default());
         draw.rect(Rect::from_xy(width, height));
         draw.position(Vec2::new(x, y));
         draw
     }
-    pub fn quad_line(&mut self, x: f32, y: f32, width: f32, height: f32) -> DrawBuilder<'_, DrawRect> {
+
+    pub fn quad_line(
+        &mut self,
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+    ) -> DrawBuilder<'_, DrawRect> {
         let mut draw = DrawBuilder::new(self, DrawRect::default());
         draw.rect(Rect::from_xy(width, height));
         draw.line_mode(true);
@@ -547,6 +628,9 @@ impl Gpu {
                 }
                 .build(self),
             )
+            .unwrap();
+        CIRCLE_MESH_32
+            .set(MeshBuilder::build_circle(32, self))
             .unwrap();
 
         MATERIAL2D.set(StandardMaterial2d::new(self)).unwrap();
