@@ -1,4 +1,4 @@
-
+use gilrs::{Gamepad, GamepadId, Gilrs};
 use glam::Vec2;
 use log::warn;
 use winit::{
@@ -109,8 +109,10 @@ pub enum MouseInput {
     Forward,
 }
 
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct Input {
+    gilrs: gilrs::Gilrs,
+
     mouse_position: Vec2,
     mouse_wheel_delta: f32,
 
@@ -121,6 +123,22 @@ pub struct Input {
     keys_just_pressed: Vec<KeyInput>,
     keys_pressed: Vec<KeyInput>,
     keys_just_released: Vec<KeyInput>,
+}
+
+impl Default for Input {
+    fn default() -> Self {
+        Self {
+            gilrs: Gilrs::new().expect("issue initializing gilrs"),
+            mouse_position: Default::default(),
+            mouse_wheel_delta: Default::default(),
+            mouse_just_pressed: Default::default(),
+            mouse_pressed: Default::default(),
+            mouse_just_released: Default::default(),
+            keys_just_pressed: Default::default(),
+            keys_pressed: Default::default(),
+            keys_just_released: Default::default(),
+        }
+    }
 }
 impl Input {
     pub fn advance(&mut self) {
@@ -134,6 +152,23 @@ impl Input {
         self.mouse_just_released.clear();
 
         self.mouse_wheel_delta = 0.0;
+    }
+
+    pub fn gilrs(&self) -> &Gilrs {
+        &self.gilrs
+    }
+
+    pub fn gilrs_mut(&mut self) -> &mut Gilrs {
+        &mut self.gilrs
+    }
+
+    pub fn gamepad<'a>(&'a self, id: usize) -> Option<Gamepad<'a>> {
+        for (gamepad_id, gamepad) in self.gilrs.gamepads() {
+            if id == gamepad_id.into() {
+                return Some(gamepad);
+            }
+        }
+        None
     }
 
     fn press_mouse(&mut self, key: MouseInput) {
