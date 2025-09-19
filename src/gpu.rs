@@ -20,8 +20,7 @@ use crate::{
 };
 
 pub trait DrawCommand: Any {
-    fn prepare(&self, _gpu: &mut Gpu) {}
-    fn render(&self, gpu: &Gpu, ctx: &mut RenderContext);
+    fn render(&self, gpu: &mut Gpu, ctx: &mut RenderContext);
 }
 
 #[derive(Default, Clone)]
@@ -40,7 +39,7 @@ impl<'a> DrawBuilder<'a, Update2d> {
     }
 }
 impl DrawCommand for Update2d {
-    fn render(&self, _gpu: &Gpu, ctx: &mut RenderContext) {
+    fn render(&self, _gpu: &mut Gpu, ctx: &mut RenderContext) {
         ctx.camera2d = self.camera.clone();
     }
 }
@@ -92,7 +91,7 @@ impl Default for DrawRect {
     }
 }
 impl DrawCommand for DrawRect {
-    fn render(&self, gpu: &Gpu, ctx: &mut RenderContext) {
+    fn render(&self, gpu: &mut Gpu, ctx: &mut RenderContext) {
         let mesh = Mesh::clone_quad_mesh();
         let mut material = StandardMaterial2d::clone_global();
         let window_size = gpu.get_main_window().inner_size();
@@ -201,7 +200,7 @@ impl Default for DrawText {
     }
 }
 impl DrawCommand for DrawText {
-    fn prepare(&self, gpu: &mut Gpu) {
+    fn render(&self, gpu: &mut Gpu, ctx: &mut RenderContext) {
         let screen_size = gpu.main_window.inner_size();
         gpu.viewport.update(
             &gpu.queue,
@@ -211,20 +210,23 @@ impl DrawCommand for DrawText {
             },
         );
 
-        //TODO: This makes text invisible
-        // gpu.text_buffer.set_size(
-        //     &mut gpu.font_system,
-        //     Some(self.font_size),
-        //     Some(self.font_size * 1.5),
-        // );
-        gpu.text_buffer.set_text(
+        let mut text_buffer = if let Some(text_buffer) = gpu.get_text_buffer() {
+            text_buffer
+        } else {
+            gpu.new_text_buffer()
+        };
+
+        text_buffer.buffer.set_metrics(
+            &mut gpu.font_system,
+            glyphon::Metrics::new(self.font_size, self.font_size * 1.2),
+        );
+        text_buffer.buffer.set_text(
             &mut gpu.font_system,
             &self.text,
             &Attrs::new().family(glyphon::Family::Monospace),
             glyphon::Shaping::Advanced,
         );
-        gpu.text_buffer
-            .shape_until_scroll(&mut gpu.font_system, false);
+        text_buffer.buffer.shape_until_scroll(&mut gpu.font_system, false);
 
         gpu.text_renderer
             .prepare(
@@ -234,7 +236,7 @@ impl DrawCommand for DrawText {
                 &mut gpu.atlas,
                 &gpu.viewport,
                 [TextArea {
-                    buffer: &gpu.text_buffer,
+                    buffer: &text_buffer.buffer,
                     left: self.position.x,
                     top: screen_size.height as f32 - self.position.y,
                     scale: 1.0,
@@ -248,14 +250,24 @@ impl DrawCommand for DrawText {
                     custom_glyphs: &[],
                 }],
                 &mut gpu.swash_cache,
+                &mut text_buffer.vertex_buffer,
+                &mut text_buffer.vertex_buffer_size
             )
             .expect("issue preparing text renderer");
-    }
 
-    fn render(&self, gpu: &Gpu, ctx: &mut RenderContext) {
-        gpu.text_renderer
-            .render(&gpu.atlas, &gpu.viewport, &mut ctx.render_pass)
-            .unwrap();
+        ctx.render_pass.set_pipeline(&gpu.text_renderer.pipeline);
+        ctx.render_pass
+            .set_bind_group(0, &gpu.atlas.bind_group, &[]);
+        ctx.render_pass
+            .set_bind_group(1, &gpu.viewport.bind_group, &[]);
+        ctx.render_pass
+            .set_vertex_buffer(0, text_buffer.vertex_buffer.slice(..));
+        ctx.render_pass
+            .draw(0..4, 0..gpu.text_renderer.glyph_vertices.len() as u32);
+
+        // gpu.text_renderer
+        //     .render(&gpu.atlas, &gpu.viewport, &mut ctx.render_pass)
+        //     .unwrap();
     }
 }
 
@@ -304,7 +316,7 @@ impl Default for DrawTexture {
     }
 }
 impl DrawCommand for DrawTexture {
-    fn render(&self, gpu: &Gpu, ctx: &mut RenderContext) {
+    fn render(&self, gpu: &mut Gpu, ctx: &mut RenderContext) {
         let mesh = Mesh::clone_quad_mesh();
         let mut material = StandardMaterial2d::clone_global();
         let window_size = gpu.get_main_window().inner_size();
@@ -387,12 +399,27 @@ impl RenderQueue {
         dt
     }
 
-    pub fn text(&mut self, text: impl Into<String>, x: f32, y: f32) -> DrawBuilder<'_, DrawText> {
+    pub fn text(
+        &mut self,
+        text: impl Into<String>,
+        x: f32,
+        y: f32,
+        font_size: f32,
+    ) -> DrawBuilder<'_, DrawText> {
         let mut dt = DrawBuilder::new(self, DrawText::default());
         dt.text(text.into());
         dt.position(Vec2::new(x, y));
+        dt.font_size(font_size);
         dt
     }
+}
+
+#[derive(Clone)]
+pub struct TextBuffer {
+    pub buffer: glyphon::Buffer,
+    pub vertex_buffer: wgpu::Buffer,
+    pub vertex_buffer_size: u64,
+    used: bool,
 }
 
 pub struct Gpu {
@@ -406,7 +433,7 @@ pub struct Gpu {
     viewport: glyphon::Viewport,
     atlas: glyphon::TextAtlas,
     text_renderer: glyphon::TextRenderer,
-    text_buffer: glyphon::Buffer,
+    text_renderers: Vec<TextBuffer>,
     is_surface_setup: bool,
     are_constants_setup: bool,
 }
@@ -498,18 +525,6 @@ impl Gpu {
             wgpu::MultisampleState::default(),
             None,
         );
-        let mut text_buffer =
-            glyphon::Buffer::new(&mut font_system, glyphon::Metrics::new(30.0, 42.0));
-
-        let physical_size = window.inner_size();
-        let scale_factor = window.scale_factor();
-        text_buffer.set_size(
-            &mut font_system,
-            Some((physical_size.width as f64 * scale_factor) as f32),
-            Some((physical_size.height as f64 * scale_factor) as f32),
-        );
-        text_buffer.set_text(&mut font_system, "Hello world! 👋\nThis is rendered with 🦅 glyphon 🦁\nThe text below should be partially clipped.\na b c d e f g h i j k l m n o p q r s t u v w x y z", &Attrs::new().family(glyphon::Family::SansSerif), glyphon::Shaping::Advanced);
-        text_buffer.shape_until_scroll(&mut font_system, false);
 
         let gpu = Self {
             config,
@@ -522,12 +537,47 @@ impl Gpu {
             viewport,
             atlas,
             text_renderer,
-            text_buffer,
+            text_renderers: Vec::new(),
             is_surface_setup: false,
             are_constants_setup: false,
         };
 
         Ok(gpu)
+    }
+
+    const COPY_BUFFER_ALIGNMENT: wgpu::BufferAddress = 4;
+    fn next_copy_buffer_size(size: u64) -> u64 {
+        let align_mask = Gpu::COPY_BUFFER_ALIGNMENT - 1;
+        ((size.next_power_of_two() + align_mask) & !align_mask).max(Gpu::COPY_BUFFER_ALIGNMENT)
+    }
+
+    pub fn new_text_buffer(&mut self) -> TextBuffer {
+        let buffer = glyphon::Buffer::new(&mut self.font_system, glyphon::Metrics::new(30.0, 42.0));
+        let vertex_buffer_size = Gpu::next_copy_buffer_size(4096);
+        let vertex_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("glyphon vertices"),
+            size: vertex_buffer_size,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        self.text_renderers.push(TextBuffer {
+            buffer,
+            vertex_buffer,
+            used: true,
+            vertex_buffer_size,
+        });
+        self.text_renderers.last_mut().unwrap().clone()
+    }
+
+    pub fn get_text_buffer(&mut self) -> Option<TextBuffer> {
+        for text_buffer in &mut self.text_renderers {
+            if text_buffer.used {
+                continue;
+            }
+            text_buffer.used = true;
+            return Some(text_buffer.clone());
+        }
+        None
     }
 
     pub fn setup_constants(&mut self) {
@@ -594,6 +644,10 @@ impl Gpu {
     }
 
     pub fn render_queue(&mut self, render_queue: &RenderQueue) {
+        for text_buffer in &mut self.text_renderers {
+            text_buffer.used = false;
+        }
+
         self.main_window.request_redraw();
         if !self.is_surface_setup {
             return;
@@ -640,7 +694,6 @@ impl Gpu {
                 camera2d: Camera2d::default(),
             };
             for cmd in render_queue.get_commands().iter().rev() {
-                cmd.prepare(self);
                 cmd.render(self, &mut ctx);
             }
         }

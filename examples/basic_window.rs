@@ -9,7 +9,7 @@ fn main() {
         .frame_loop(|frame, _| {
             let mut render = frame.render(Srgba::SILVER);
             render
-                .text("Hello from luxlib!", 350.0, 400.0)
+                .text("Hello from luxlib!", 350.0, 400.0, 32.0)
                 .tint(Srgba::DARK_GRAY);
             Ok(render)
         })

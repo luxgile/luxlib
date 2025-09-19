@@ -31,12 +31,10 @@ fn main() {
 
             let mut render = frame.render(Srgba::SILVER);
             render
-                .text("scroll: change cursor size", 10.0, 50.0)
-                .font_size(12.0)
+                .text("buttons: change cursor color", 10.0, 80.0, 24.0)
                 .tint(Srgba::DARK_GRAY);
             render
-                .text("buttons: change cursor color", 10.0, 80.0)
-                .font_size(12.0)
+                .text("scroll: change cursor size", 10.0, 50.0, 24.0)
                 .tint(Srgba::DARK_GRAY);
             render
                 .rect(position.x, position.y, game.cursor_size, game.cursor_size)

@@ -1,0 +1,3 @@
+[submodule "deps/glyphon"]
+	path = deps/glyphon
+	url = https://github.com/luxgile/glyphon.git

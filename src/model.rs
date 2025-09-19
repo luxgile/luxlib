@@ -95,7 +95,7 @@ impl Debug for Model {
     }
 }
 impl DrawCommand for Model {
-    fn render(&self, _gpu: &Gpu, ctx: &mut RenderContext) {
+    fn render(&self, _gpu: &mut Gpu, ctx: &mut RenderContext) {
         ctx.render_pass.set_pipeline(self.material.get_pipeline().get_handle());
         ctx.render_pass.set_vertex_buffer(0, self.mesh.get_vertices().get_handle().slice(..));
         ctx.render_pass.set_bind_group(0, Some(self.material.get_bind_group().get_handle()), &[]);

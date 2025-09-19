@@ -30,7 +30,7 @@ pub struct DrawCircle {
     color: Srgba,
 }
 impl DrawCommand for DrawCircle {
-    fn render(&self, _gpu: &Gpu, _ctx: &mut RenderContext) {}
+    fn render(&self, _gpu: &mut Gpu, _ctx: &mut RenderContext) {}
 }
 
 #[derive(Default, Clone, Debug)]
