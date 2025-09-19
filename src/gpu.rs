@@ -7,6 +7,7 @@ use std::{
 use glam::{UVec2, Vec2, Vec3Swizzles};
 use glyphon::{Attrs, Resolution, TextArea, TextBounds};
 use log::warn;
+use luxlib_derives::DrawBuilder;
 use winit::window::Window;
 
 use crate::{
@@ -28,15 +29,9 @@ pub struct Camera2d {
     pub position: Vec2,
 }
 
-#[derive(Default)]
+#[derive(Default, DrawBuilder)]
 pub struct Update2d {
     pub camera: Camera2d,
-}
-impl<'a> DrawBuilder<'a, Update2d> {
-    pub fn position(&mut self, position: Vec2) -> &mut Self {
-        self.camera.position = position;
-        self
-    }
 }
 impl DrawCommand for Update2d {
     fn render(&self, _gpu: &mut Gpu, ctx: &mut RenderContext) {
@@ -49,35 +44,13 @@ pub struct RenderContext<'a> {
     pub camera2d: Camera2d,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, DrawBuilder)]
 pub struct DrawRect {
     pub position: Vec2,
     pub euler_angle: f32,
     pub scale: Vec2,
     pub rect: Rect,
     pub color: Srgba,
-}
-impl<'a> DrawBuilder<'a, DrawRect> {
-    pub fn position(&mut self, position: Vec2) -> &mut Self {
-        self.position = position;
-        self
-    }
-    pub fn scale(&mut self, scale: Vec2) -> &mut Self {
-        self.scale = scale;
-        self
-    }
-    pub fn rect(&mut self, rect: Rect) -> &mut Self {
-        self.rect = rect;
-        self
-    }
-    pub fn color(&mut self, color: Srgba) -> &mut Self {
-        self.color = color;
-        self
-    }
-    pub fn angle(&mut self, euler_angle: f32) -> &mut Self {
-        self.euler_angle = euler_angle;
-        self
-    }
 }
 impl Default for DrawRect {
     fn default() -> Self {
@@ -153,6 +126,7 @@ impl<'a, T: DrawCommand> DrawBuilder<'a, T> {
     }
 }
 
+#[derive(DrawBuilder)]
 pub struct DrawText {
     pub position: Vec2,
     pub euler_angle: f32,
@@ -160,32 +134,6 @@ pub struct DrawText {
     pub tint: Srgba,
     pub text: String,
     pub font_size: f32,
-}
-impl<'a> DrawBuilder<'a, DrawText> {
-    pub fn position(&mut self, position: Vec2) -> &mut Self {
-        self.position = position;
-        self
-    }
-    pub fn angle(&mut self, euler_angle: f32) -> &mut Self {
-        self.euler_angle = euler_angle;
-        self
-    }
-    pub fn scale(&mut self, scale: Vec2) -> &mut Self {
-        self.scale = scale;
-        self
-    }
-    pub fn text(&mut self, text: impl Into<String>) -> &mut Self {
-        self.text = text.into();
-        self
-    }
-    pub fn font_size(&mut self, font_size: f32) -> &mut Self {
-        self.font_size = font_size;
-        self
-    }
-    pub fn tint(&mut self, tint: Srgba) -> &mut Self {
-        self.tint = tint;
-        self
-    }
 }
 impl Default for DrawText {
     fn default() -> Self {
@@ -271,6 +219,7 @@ impl DrawCommand for DrawText {
     }
 }
 
+#[derive(DrawBuilder)]
 pub struct DrawTexture {
     pub position: Vec2,
     pub euler_angle: f32,
@@ -279,28 +228,8 @@ pub struct DrawTexture {
     pub tint: Srgba,
 }
 impl<'a> DrawBuilder<'a, DrawTexture> {
-    pub fn position(&mut self, position: Vec2) -> &mut Self {
-        self.position = position;
-        self
-    }
-    pub fn angle(&mut self, euler_angle: f32) -> &mut Self {
-        self.euler_angle = euler_angle;
-        self
-    }
     pub fn uniform_scale(&mut self, scale: f32) -> &mut Self {
         self.scale = Vec2::ONE * scale;
-        self
-    }
-    pub fn scale(&mut self, scale: Vec2) -> &mut Self {
-        self.scale = scale;
-        self
-    }
-    pub fn texture(&mut self, texture: &Texture) -> &mut Self {
-        self.texture = texture.clone();
-        self
-    }
-    pub fn tint(&mut self, tint: Srgba) -> &mut Self {
-        self.tint = tint;
         self
     }
 }
@@ -394,7 +323,7 @@ impl RenderQueue {
 
     pub fn texture(&mut self, texture: &Texture, x: f32, y: f32) -> DrawBuilder<'_, DrawTexture> {
         let mut dt = DrawBuilder::new(self, DrawTexture::default());
-        dt.texture(texture);
+        dt.texture(texture.clone());
         dt.position(Vec2::new(x, y));
         dt
     }

@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+luxlib_derives = { path = "./crates/luxlib_derives" }
 anyhow = "1.0.99"
 bitflags = "2.9.3"
 bytemuck = "1.23.2"

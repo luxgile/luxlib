@@ -1329,11 +1329,21 @@ dependencies = [
  "image",
  "lazy_static",
  "log",
+ "luxlib_derives",
  "once_cell",
  "pollster",
  "thiserror 2.0.16",
  "wgpu",
  "winit",
+]
+
+[[package]]
+name = "luxlib_derives"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
