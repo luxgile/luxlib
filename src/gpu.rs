@@ -15,7 +15,7 @@ use crate::{
     LuxError,
     color::Srgba,
     material::{MATERIAL2D, Material, StandardMaterial2d},
-    model::{CIRCLE_MESH_32, Mesh, MeshBuilder, QUAD_LINE_MESH, QUAD_MESH},
+    model::{CIRCLE_LINE_MESH_32, CIRCLE_MESH_32, Mesh, MeshBuilder, QUAD_LINE_MESH, QUAD_MESH},
     shapes::Rect,
     texture::{Texture, TextureBuilder, WHITE_TEXTURE},
     vertex::Vertex2,
@@ -66,7 +66,7 @@ impl DrawCommand for DrawCircle {
     fn render(&self, gpu: &mut Gpu, ctx: &mut RenderContext) {
         let window_size = gpu.get_main_window().inner_size();
         let mesh = if self.line_mode {
-            Mesh::clone_circle_mesh()
+            Mesh::clone_circle_line_mesh()
         } else {
             Mesh::clone_circle_mesh()
         };
@@ -78,11 +78,7 @@ impl DrawCommand for DrawCircle {
             window_size.height as f32,
         );
         material.set_color(self.color);
-        material.set_model(
-            self.position,
-            0.0,
-            Vec2::ONE * self.radius,
-        );
+        material.set_model(self.position, 0.0, Vec2::ONE * self.radius);
         material.rebuild(gpu);
 
         ctx.render_pass
@@ -631,6 +627,9 @@ impl Gpu {
             .unwrap();
         CIRCLE_MESH_32
             .set(MeshBuilder::build_circle(32, self))
+            .unwrap();
+        CIRCLE_LINE_MESH_32
+            .set(MeshBuilder::build_circle_line(32, self))
             .unwrap();
 
         MATERIAL2D.set(StandardMaterial2d::new(self)).unwrap();

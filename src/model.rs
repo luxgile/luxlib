@@ -28,9 +28,6 @@ impl MeshBuilder<Vertex2> {
         let mut temp_indices: Vec<u16> = Vec::new();
         let resolution = resolution.max(3);
 
-        // Center
-        temp_vertices.push(Vertex2::from_xy(0.0, 0.0));
-
         // Perimeter
         for i in 0..resolution {
             let angle = i as f32 * 2.0 * std::f32::consts::PI / resolution as f32;
@@ -56,6 +53,32 @@ impl MeshBuilder<Vertex2> {
         }
         .build(gpu)
     }
+
+    pub fn build_circle_line(resolution: u32, gpu: &Gpu) -> Mesh {
+        let mut temp_vertices: Vec<Vertex2> = Vec::new();
+        let mut temp_indices: Vec<u16> = Vec::new();
+        let resolution = resolution.max(3);
+
+        // Perimeter
+        for i in 0..resolution {
+            let angle = i as f32 * 2.0 * std::f32::consts::PI / resolution as f32;
+            let x = angle.cos();
+            let y = angle.sin();
+            temp_vertices.push(Vertex2::from_xy(x, y));
+        }
+
+        // Indices
+        for i in 0..resolution {
+            temp_indices.push(i as u16);
+        }
+        temp_indices.push(0);
+
+        MeshBuilder {
+            vertices: temp_vertices,
+            indices: temp_indices,
+        }
+        .build(gpu)
+    }
 }
 impl<V: Vertex + Pod> MeshBuilder<V> {
     pub fn build(&self, gpu: &Gpu) -> Mesh {
@@ -73,6 +96,7 @@ impl<V: Vertex + Pod> MeshBuilder<V> {
     }
 }
 
+pub(crate) static CIRCLE_LINE_MESH_32: OnceCell<Mesh> = OnceCell::new();
 pub(crate) static CIRCLE_MESH_32: OnceCell<Mesh> = OnceCell::new();
 pub(crate) static QUAD_MESH: OnceCell<Mesh> = OnceCell::new();
 pub(crate) static QUAD_LINE_MESH: OnceCell<Mesh> = OnceCell::new();
@@ -108,6 +132,13 @@ impl Mesh {
 
     pub fn clone_circle_mesh() -> Mesh {
         CIRCLE_MESH_32
+            .get()
+            .expect("circle mesh has not been set yet")
+            .clone()
+    }
+
+    pub fn clone_circle_line_mesh() -> Mesh {
+        CIRCLE_LINE_MESH_32
             .get()
             .expect("circle mesh has not been set yet")
             .clone()
