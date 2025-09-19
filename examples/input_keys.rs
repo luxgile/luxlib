@@ -30,7 +30,7 @@ fn main() {
 
             let mut render = frame.render(Srgba::SILVER);
             render
-                .rect(game.position.x, game.position.y, 25.0, 25.0)
+                .quad(game.position.x, game.position.y, 25.0, 25.0)
                 .color(Srgba::DARK_GRAY);
             Ok(render)
         })

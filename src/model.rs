@@ -39,6 +39,7 @@ impl<V: Vertex + Pod> MeshBuilder<V> {
 }
 
 pub(crate) static QUAD_MESH: OnceCell<Mesh> = OnceCell::new();
+pub(crate) static QUAD_LINE_MESH: OnceCell<Mesh> = OnceCell::new();
 
 #[derive(Debug, Clone)]
 pub struct Mesh {
@@ -57,6 +58,10 @@ impl Mesh {
 
     pub fn clone_quad_mesh() -> Mesh {
         QUAD_MESH.get().expect("quad mesh has not been set yet").clone()
+    }
+
+    pub fn clone_quad_line_mesh() -> Mesh {
+        QUAD_LINE_MESH.get().expect("quad line mesh has not been set yet").clone()
     }
 }
 

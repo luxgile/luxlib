@@ -37,7 +37,7 @@ fn main() {
                 .text("scroll: change cursor size", 10.0, 50.0, 24.0)
                 .tint(Srgba::DARK_GRAY);
             render
-                .rect(position.x, position.y, game.cursor_size, game.cursor_size)
+                .quad(position.x, position.y, game.cursor_size, game.cursor_size)
                 .color(color);
             Ok(render)
         })

@@ -11,13 +11,7 @@ use luxlib_derives::DrawBuilder;
 use winit::window::Window;
 
 use crate::{
-    LuxError,
-    color::Srgba,
-    material::{MATERIAL2D, Material, StandardMaterial2d},
-    model::{Mesh, MeshBuilder, QUAD_MESH},
-    shapes::Rect,
-    texture::{Texture, TextureBuilder, WHITE_TEXTURE},
-    vertex::Vertex2,
+    color::Srgba, material::{Material, StandardMaterial2d, MATERIAL2D}, model::{Mesh, MeshBuilder, QUAD_LINE_MESH, QUAD_MESH}, shapes::Rect, texture::{Texture, TextureBuilder, WHITE_TEXTURE}, vertex::Vertex2, LuxError
 };
 
 pub trait DrawCommand: Any {
@@ -51,6 +45,7 @@ pub struct DrawRect {
     pub scale: Vec2,
     pub rect: Rect,
     pub color: Srgba,
+    pub line_mode: bool,
 }
 impl Default for DrawRect {
     fn default() -> Self {
@@ -60,14 +55,20 @@ impl Default for DrawRect {
             scale: Vec2::ONE,
             rect: Rect::from_xy(25.0, 25.0),
             color: Srgba::WHITE,
+            line_mode: false,
         }
     }
 }
 impl DrawCommand for DrawRect {
     fn render(&self, gpu: &mut Gpu, ctx: &mut RenderContext) {
-        let mesh = Mesh::clone_quad_mesh();
-        let mut material = StandardMaterial2d::clone_global();
         let window_size = gpu.get_main_window().inner_size();
+        let mesh = if self.line_mode {
+            Mesh::clone_quad_line_mesh()
+        } else {
+            Mesh::clone_quad_mesh()
+        };
+        let mut material = StandardMaterial2d::clone_global();
+        material.set_line_mode(self.line_mode);
         material.set_view_projection(
             ctx.camera2d.position,
             window_size.width as f32,
@@ -174,7 +175,9 @@ impl DrawCommand for DrawText {
             &Attrs::new().family(glyphon::Family::Monospace),
             glyphon::Shaping::Advanced,
         );
-        text_buffer.buffer.shape_until_scroll(&mut gpu.font_system, false);
+        text_buffer
+            .buffer
+            .shape_until_scroll(&mut gpu.font_system, false);
 
         gpu.text_renderer
             .prepare(
@@ -199,7 +202,7 @@ impl DrawCommand for DrawText {
                 }],
                 &mut gpu.swash_cache,
                 &mut text_buffer.vertex_buffer,
-                &mut text_buffer.vertex_buffer_size
+                &mut text_buffer.vertex_buffer_size,
             )
             .expect("issue preparing text renderer");
 
@@ -314,9 +317,16 @@ impl RenderQueue {
         )
     }
 
-    pub fn rect(&mut self, x: f32, y: f32, width: f32, height: f32) -> DrawBuilder<'_, DrawRect> {
+    pub fn quad(&mut self, x: f32, y: f32, width: f32, height: f32) -> DrawBuilder<'_, DrawRect> {
         let mut draw = DrawBuilder::new(self, DrawRect::default());
         draw.rect(Rect::from_xy(width, height));
+        draw.position(Vec2::new(x, y));
+        draw
+    }
+    pub fn quad_line(&mut self, x: f32, y: f32, width: f32, height: f32) -> DrawBuilder<'_, DrawRect> {
+        let mut draw = DrawBuilder::new(self, DrawRect::default());
+        draw.rect(Rect::from_xy(width, height));
+        draw.line_mode(true);
         draw.position(Vec2::new(x, y));
         draw
     }
@@ -390,6 +400,7 @@ impl Gpu {
         },
     ];
     const QUAD_IDX: [u16; 6] = [0, 1, 2, 0, 2, 3];
+    const QUAD_LINE_IDX: [u16; 5] = [0, 1, 2, 3, 0];
 
     pub async fn new(window: Arc<Window>) -> Result<Self, LuxError> {
         let size = window.inner_size();
@@ -524,6 +535,15 @@ impl Gpu {
                 MeshBuilder {
                     vertices: Self::QUAD_VERTS.to_vec(),
                     indices: Self::QUAD_IDX.to_vec(),
+                }
+                .build(self),
+            )
+            .unwrap();
+        QUAD_LINE_MESH
+            .set(
+                MeshBuilder {
+                    vertices: Self::QUAD_VERTS.to_vec(),
+                    indices: Self::QUAD_LINE_IDX.to_vec(),
                 }
                 .build(self),
             )

@@ -28,6 +28,7 @@ pub struct StandardMaterial2d {
     color: Uniform<Srgba>,
     model: Uniform<glam::Mat4>,
     view_proj: Uniform<glam::Mat4>,
+    line_mode: bool,
 
     dirty: bool,
     cached_pipeline: Pipeline,
@@ -42,6 +43,7 @@ impl StandardMaterial2d {
             color: Uniform::new(Srgba::WHITE),
             model: Uniform::new(glam::Mat4::IDENTITY),
             view_proj: Uniform::new(glam::Mat4::IDENTITY),
+            line_mode: false,
             dirty: true,
             cached_pipeline: PipelineBuilder::default().build(gpu, None),
             cached_bind_group: BindGroupBuilder::default().build(gpu),
@@ -79,6 +81,14 @@ impl StandardMaterial2d {
         self.dirty = true;
     }
 
+    pub fn line_mode(&self) -> bool {
+        self.line_mode
+    }
+    pub fn set_line_mode(&mut self, line_mode: bool) {
+        self.line_mode = line_mode;
+        self.dirty = true;
+    }
+
     pub fn set_view_projection(&mut self, position: Vec2, width: f32, height: f32) {
         let view = Mat4::from_translation(position.extend(0.0));
         let projection = Mat4::orthographic_rh(0.0, width, height, 0.0, 0.0, 1.0);
@@ -100,7 +110,11 @@ impl StandardMaterial2d {
     }
 
     fn build_pipeline(&self, gpu: &Gpu) -> Pipeline {
-        PipelineBuilder::build_2d_default(gpu, &self.cached_bind_group)
+        if self.line_mode {
+            PipelineBuilder::build_2d_lines_default(gpu, &self.cached_bind_group)
+        } else {
+            PipelineBuilder::build_2d_default(gpu, &self.cached_bind_group)
+        }
     }
 
     fn build_bind_group(&self, gpu: &Gpu) -> BindGroup {

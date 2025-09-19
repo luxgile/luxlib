@@ -70,6 +70,7 @@ pub struct PipelineBuilder<'a> {
     label: Option<String>,
     shader: ShaderBuilder<'a>,
     layout: PipelineLayoutBuilder,
+    line_mode: bool,
     vertex_layout: VertexBufferLayout<'static>,
 }
 impl<'a> Default for PipelineBuilder<'a> {
@@ -78,6 +79,7 @@ impl<'a> Default for PipelineBuilder<'a> {
             label: Default::default(),
             shader: ShaderBuilder::default(),
             layout: PipelineLayoutBuilder::default(),
+            line_mode: false,
             vertex_layout: Vertex2::get_layout(),
         }
     }
@@ -93,6 +95,23 @@ impl<'a> PipelineBuilder<'a> {
             layout: PipelineLayoutBuilder {
                 label: Some("2d layout".into()),
             },
+            line_mode: false,
+            vertex_layout: Vertex2::get_layout(),
+        }
+        .build(gpu, Some(bind_group))
+    }
+
+    pub fn build_2d_lines_default(gpu: &Gpu, bind_group: &BindGroup) -> Pipeline {
+        Self {
+            label: Some("2d pipeline".into()),
+            shader: ShaderBuilder {
+                label: Some("2d shader".into()),
+                source: wgpu::ShaderSource::Wgsl(include_str!("2d.wgsl").into()),
+            },
+            layout: PipelineLayoutBuilder {
+                label: Some("2d layout".into()),
+            },
+            line_mode: true,
             vertex_layout: Vertex2::get_layout(),
         }
         .build(gpu, Some(bind_group))
@@ -130,7 +149,11 @@ impl<'a> PipelineBuilder<'a> {
                 })],
             }),
             primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
+                topology: if !self.line_mode {
+                    wgpu::PrimitiveTopology::TriangleList
+                } else {
+                    wgpu::PrimitiveTopology::LineStrip
+                },
                 strip_index_format: None,
                 front_face: wgpu::FrontFace::Ccw,
                 cull_mode: Some(wgpu::Face::Front),
