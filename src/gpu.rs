@@ -247,7 +247,7 @@ impl DrawCommand for DrawText {
                 [TextArea {
                     buffer: &text_buffer.buffer,
                     left: self.position.x,
-                    top: screen_size.height as f32 - self.position.y,
+                    top: self.position.y,
                     scale: 1.0,
                     bounds: TextBounds {
                         left: 0,

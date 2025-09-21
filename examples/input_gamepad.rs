@@ -26,22 +26,32 @@ fn main() {
             if let Some(gamepad) = frame.input().gamepad(game.gamepad_id) {
                 render.text(
                     format!("Gamepad [{}]: {}", gamepad.id(), gamepad.name()),
-                    10.0,
-                    frame.gpu().get_window_size().y as f32 - 20.0,
+                    20.0,
+                    20.0,
                     24.0,
                 );
 
-                // TODO: Not able to detect steam controller
+                let stick_radius = 50.0;
+                
+                // Left stick
                 let left_stick_x = gamepad.value(Axis::LeftStickX);
                 let left_stick_y = gamepad.value(Axis::LeftStickY);
+                render.text("Left stick", 315.0, 130.0, 12.0);
+                render.circle_line(350.0, 150.0, stick_radius);
+                render.circle(
+                    350.0 + left_stick_x * stick_radius,
+                    150.0 - left_stick_y * stick_radius,
+                    5.0,
+                );
+
+                // Right stick
                 let right_stick_x = gamepad.value(Axis::RightStickX);
                 let right_stick_y = gamepad.value(Axis::RightStickY);
-
-                let radius = 50.0;
-                render.circle_line(250.0, 250.0, radius);
+                render.text("Right stick", 510.0, 130.0, 12.0);
+                render.circle_line(550.0, 150.0, stick_radius);
                 render.circle(
-                    250.0 + left_stick_x * radius,
-                    250.0 - left_stick_y * radius,
+                    550.0 + right_stick_x * stick_radius,
+                    150.0 - right_stick_y * stick_radius,
                     5.0,
                 );
             } else {
