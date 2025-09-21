@@ -1,12 +1,9 @@
-use gilrs::Axis;
+use gilrs::{Axis, Button};
 use luxlib::prelude::*;
 
 struct Game {
     gamepad_id: usize,
 }
-
-const STICK_DEADZONE: f32 = 0.1;
-const TRIGGER_DEADZONE: f32 = -0.9;
 
 fn main() {
     luxlib::setup()
@@ -34,11 +31,19 @@ fn main() {
                     24.0,
                 );
 
-                let left_stick_x = gamepad.axis_data(Axis::LeftStickX).unwrap();
-                let left_stick_y = gamepad.axis_data(Axis::LeftStickY).unwrap();
-                let right_stick_x = gamepad.axis_data(Axis::RightStickX).unwrap();
-                let right_stick_y = gamepad.axis_data(Axis::RightStickY).unwrap();
-                // TODO: Need a way to draw circles
+                // TODO: Not able to detect steam controller
+                let left_stick_x = gamepad.value(Axis::LeftStickX);
+                let left_stick_y = gamepad.value(Axis::LeftStickY);
+                let right_stick_x = gamepad.value(Axis::RightStickX);
+                let right_stick_y = gamepad.value(Axis::RightStickY);
+
+                let radius = 50.0;
+                render.circle_line(250.0, 250.0, radius);
+                render.circle(
+                    250.0 + left_stick_x * radius,
+                    250.0 - left_stick_y * radius,
+                    5.0,
+                );
             } else {
                 // If no gamepad is found:
                 render.text(

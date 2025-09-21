@@ -105,6 +105,9 @@ impl<T> ApplicationHandler<()> for App<T> {
                     return;
                 }
 
+                // Poll the controller events
+                while let Some(_e) = self.input.gilrs_mut().next_event() {}
+
                 let dt = self.last_frame_time.elapsed().as_secs_f64();
                 self.last_frame_time = Instant::now();
 
