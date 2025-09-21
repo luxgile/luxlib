@@ -11,6 +11,7 @@ pub struct Frame<'a> {
     io: Io,
     input: &'a Input,
     gpu: &'a Gpu,
+    should_close: bool,
 }
 impl<'a> Frame<'a> {
     pub fn new(dt: f64, frame: u64, input: &'a Input, gpu: &'a Gpu) -> Self {
@@ -20,6 +21,7 @@ impl<'a> Frame<'a> {
             io: Io,
             input,
             gpu,
+            should_close: false,
         }
     }
 
@@ -45,5 +47,12 @@ impl<'a> Frame<'a> {
 
     pub fn render(&mut self, color: Srgba) -> RenderQueue {
         RenderQueue::new(color)
+    }
+
+    pub fn close_app(&mut self) {
+        self.should_close = true;
+    }
+    pub fn should_close(&mut self) -> bool {
+        self.should_close
     }
 }

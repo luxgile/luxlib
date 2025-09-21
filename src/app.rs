@@ -114,7 +114,11 @@ impl<T> ApplicationHandler<()> for App<T> {
                 let render_queue = {
                     let state = self.state.as_mut().unwrap();
                     let mut frame = Frame::new(dt, self.frames, &self.input, gpu);
-                    (self.frame_loop)(&mut frame, state).unwrap_or_default()
+                    let queue = (self.frame_loop)(&mut frame, state).unwrap_or_default();
+                    if frame.should_close() {
+                        event_loop.exit();
+                    } 
+                    queue
                 };
 
                 self.frames += 1;
