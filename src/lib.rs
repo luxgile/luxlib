@@ -19,6 +19,7 @@ pub mod shapes;
 pub mod texture;
 pub mod uniform;
 pub mod vertex;
+pub mod collision;
 
 #[derive(thiserror::Error, Debug)]
 pub enum LuxError {

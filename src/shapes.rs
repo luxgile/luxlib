@@ -5,7 +5,7 @@ use crate::{
     gpu::{DrawCommand, Gpu, RenderContext},
 };
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, Copy)]
 pub struct Rect {
     pub size: Vec2,
 }
@@ -20,7 +20,7 @@ impl Rect {
 }
 
 
-#[derive(Default, Clone, Debug)]
+#[derive(Default, Debug, Clone, Copy)]
 pub struct Circle {
     pub radius: f32,
 }

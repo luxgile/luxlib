@@ -1,4 +1,9 @@
 pub use crate::color::*;
+pub use crate::frame::Frame;
+pub use crate::gpu::RenderQueue;
+pub use crate::shapes::*;
+pub use crate::collision::Collider2;
+pub use crate::collision::CollisionHit;
 
 pub use crate::texture::Texture;
 
