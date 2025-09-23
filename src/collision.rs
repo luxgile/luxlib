@@ -1,6 +1,7 @@
 use crate::prelude::*;
 use crate::shapes::{Circle, Rect};
 
+#[derive(Debug, Clone)]
 pub struct CollisionHit {
     pub position: Vec2,
     pub normal: Vec2,
@@ -18,7 +19,8 @@ pub trait Collider2 {
 
 impl Collider2 for Circle {
     fn check_rect(&self, self_pos: Vec2, rect: Rect, rect_pos: Vec2) -> Option<CollisionHit> {
-        let min = rect_pos;
+        let rect = Rect::new(rect.size / 2.0);
+        let min = rect_pos - rect.size;
         let max = rect_pos + rect.size;
 
         let p = Vec2::clamp(self_pos, min, max);

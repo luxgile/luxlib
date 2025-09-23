@@ -30,12 +30,18 @@ pub struct Camera2d {
     pub position: Vec2,
 }
 
-#[derive(Default, DrawBuilder)]
+#[derive(Default)]
 pub struct Update2d {
     pub camera: Camera2d,
 }
+impl<'a> DrawBuilder<'a, Update2d> {
+    pub fn position(&mut self, position: Vec2) -> &mut Self {
+        self.camera.position = position;
+        self
+    }
+}
 impl DrawCommand for Update2d {
-    fn render(&self, _gpu: &mut Gpu, ctx: &mut RenderContext) {
+    fn render(&self, gpu: &mut Gpu, ctx: &mut RenderContext) {
         ctx.camera2d = self.camera.clone();
     }
 }
@@ -725,7 +731,7 @@ impl Gpu {
                 render_pass,
                 camera2d: Camera2d::default(),
             };
-            for cmd in render_queue.get_commands().iter().rev() {
+            for cmd in render_queue.get_commands() {
                 cmd.render(self, &mut ctx);
             }
         }

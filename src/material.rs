@@ -90,8 +90,9 @@ impl StandardMaterial2d {
     }
 
     pub fn set_view_projection(&mut self, position: Vec2, width: f32, height: f32) {
+        let position = -position + Vec2::new(width, height) / 2.0;
         let view = Mat4::from_translation(position.extend(0.0));
-        let projection = Mat4::orthographic_rh(0.0, width, height, 0.0, 0.0, 1.0);
+        let projection = Mat4::orthographic_rh(0.0, width, 0.0, height, 0.0, 1.0);
         self.view_proj.set(projection * view);
         self.dirty = true;
     }
