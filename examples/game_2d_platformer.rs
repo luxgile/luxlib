@@ -1,6 +1,62 @@
 use luxlib::{gpu::Camera2d, prelude::*};
 
-// Represent quad obstacle
+fn main() {
+    luxlib::setup()
+        .target_fps(60)
+        .init(game_init)
+        .frame_loop(game_loop)
+        .start();
+}
+
+fn game_init(_frame: &mut Frame) -> anyhow::Result<Game> {
+    Ok(Game {
+        obstacles: vec![
+            Obstacle::new(0.0, -200.0, 550.0, 250.0),
+            Obstacle::new(250.0, 10.0, 150.0, 20.0),
+            Obstacle::new(-250.0, 10.0, 150.0, 20.0),
+            Obstacle::new(75.0, 0.0, 30.0, 300.0),
+        ],
+        ..Default::default()
+    })
+}
+
+fn game_loop(frame: &mut Frame, game: &mut Game) -> anyhow::Result<RenderQueue> {
+    // Game update
+    let player = &mut game.player;
+    player.update(frame, &game.obstacles);
+
+    game.camera_pos = player.position.lerp(game.camera_pos, CAMERA_SMOOTHNESS);
+
+    // Game render
+    let mut render = frame.render(Srgba::SILVER);
+    render.update_camera_2d().position(game.camera_pos);
+    player.render(&mut render);
+    for obstacle in &game.obstacles {
+        render
+            .quad(
+                obstacle.position.x,
+                obstacle.position.y,
+                obstacle.rect.size.x,
+                obstacle.rect.size.y,
+            )
+            .color(Srgba::DARK_GRAY);
+    }
+    render
+        .text("Use the arrows to move and 'Space' to jump!", 10.0, 10.0, 24.0)
+        .tint(Srgba::DARK_GRAY);
+    Ok(render)
+}
+
+// Game state
+const CAMERA_SMOOTHNESS: f32 = 0.9;
+#[derive(Default)]
+struct Game {
+    obstacles: Vec<Obstacle>,
+    player: Player,
+    camera_pos: Vec2,
+}
+
+// Represent a quad obstacle
 pub struct Obstacle {
     position: Vec2,
     rect: Rect,
@@ -94,58 +150,3 @@ impl Player {
     }
 }
 
-// Game state
-const CAMERA_SMOOTHNESS: f32 = 0.9;
-#[derive(Default)]
-struct Game {
-    obstacles: Vec<Obstacle>,
-    player: Player,
-    camera_pos: Vec2,
-}
-
-fn main() {
-    luxlib::setup()
-        .target_fps(60)
-        .init(game_init)
-        .frame_loop(game_loop)
-        .start();
-}
-
-fn game_init(_frame: &mut Frame) -> anyhow::Result<Game> {
-    Ok(Game {
-        obstacles: vec![
-            Obstacle::new(0.0, -200.0, 550.0, 250.0),
-            Obstacle::new(250.0, 10.0, 150.0, 20.0),
-            Obstacle::new(-250.0, 10.0, 150.0, 20.0),
-            Obstacle::new(75.0, 0.0, 30.0, 300.0),
-        ],
-        ..Default::default()
-    })
-}
-
-fn game_loop(frame: &mut Frame, game: &mut Game) -> anyhow::Result<RenderQueue> {
-    // Game update
-    let player = &mut game.player;
-    player.update(frame, &game.obstacles);
-
-    game.camera_pos = player.position.lerp(game.camera_pos, CAMERA_SMOOTHNESS);
-
-    // Game render
-    let mut render = frame.render(Srgba::SILVER);
-    render.update_camera_2d().position(game.camera_pos);
-    player.render(&mut render);
-    for obstacle in &game.obstacles {
-        render
-            .quad(
-                obstacle.position.x,
-                obstacle.position.y,
-                obstacle.rect.size.x,
-                obstacle.rect.size.y,
-            )
-            .color(Srgba::DARK_GRAY);
-    }
-    render
-        .text("Use the arrows to move and 'Space' to jump!", 10.0, 10.0, 24.0)
-        .tint(Srgba::DARK_GRAY);
-    Ok(render)
-}
